@@ -511,7 +511,7 @@ The Python installer supports zip URLs and JSON install manifests that point to 
 
 ```bash
 python -m model_regression_eval.cli skill install \
-  --from-url https://example.com/model_regression_eval.zip \
+  --from-url https://github.com/wenxi96/model-regression-eval/archive/refs/heads/main.zip \
   --target auto \
   --project-root . \
   --dry-run
@@ -521,28 +521,13 @@ Optional checksum verification:
 
 ```bash
 python -m model_regression_eval.cli skill install \
-  --from-url https://example.com/model_regression_eval.zip \
+  --from-url https://github.com/wenxi96/model-regression-eval/archive/refs/heads/main.zip \
   --sha256 <expected-sha256> \
   --target auto \
   --project-root .
 ```
 
 ### Install from Git
-
-```bash
-python -m model_regression_eval.cli skill install \
-  --from-git https://github.com/your-org/model-regression-eval.git \
-  --ref main \
-  --target auto \
-  --project-root . \
-  --dry-run
-```
-
-### Third-party Agent distribution
-
-推荐给第三方 Agent 提供两种入口：
-
-1. 有仓库访问权限的 Agent，直接从 Git 安装：
 
 ```bash
 python -m model_regression_eval.cli skill install \
@@ -553,54 +538,70 @@ python -m model_regression_eval.cli skill install \
   --dry-run
 ```
 
-确认预览结果后去掉 `--dry-run` 执行真实安装。也可以把 `--target auto` 改成明确目标，例如 `--target codex`、`--target claude`、`--target cursor` 或 `--target web-manual`。
+### Third-party Agent distribution
 
-2. 面向无需预装本项目的“一键脚本”，先生成 bootstrap 脚本，再把脚本作为 GitHub Release asset、内部文件服务器文件或仓库内固定脚本路径分发：
+推荐给第三方 Agent 提供两种入口。公开仓库场景优先使用仓库内的一键脚本；脚本会下载公开源码 zip，在当前项目目录执行安装，并默认只做 dry-run。
 
-```bash
-python -m model_regression_eval.cli skill bootstrap \
-  --platform unix \
-  --git-url https://github.com/wenxi96/model-regression-eval.git \
-  --out dist/install-git.sh
-```
-
-第三方在目标项目根目录运行：
+1. Unix/macOS/Linux/WSL:
 
 ```bash
-curl -fsSL <install-script-url> -o install.sh
-bash install.sh          # dry-run by default
-DRY_RUN=0 bash install.sh
+curl -fsSL https://raw.githubusercontent.com/wenxi96/model-regression-eval/main/scripts/install.sh -o install.sh
+bash install.sh                    # dry-run by default
+DRY_RUN=0 bash install.sh           # apply changes
 ```
 
-如果仓库是 public，也可以生成基于 zip 下载的脚本，适合 GitHub Release 或 raw/static URL 分发：
+指定目标时设置 `TARGET`：
 
 ```bash
-python -m model_regression_eval.cli skill bootstrap \
-  --platform unix \
-  --source-url https://github.com/wenxi96/model-regression-eval/archive/refs/heads/main.zip \
-  --out dist/install.sh
+TARGET=codex bash install.sh
+DRY_RUN=0 TARGET=codex bash install.sh
 ```
 
-注意：private 仓库的匿名 zip 下载通常会返回 `404`，这种情况下应使用 `--git-url` 脚本，或让第三方 Agent 的运行环境具备 GitHub 访问权限。
+2. Windows PowerShell:
+
+```bash
+irm https://raw.githubusercontent.com/wenxi96/model-regression-eval/main/scripts/install.ps1 -OutFile install.ps1
+powershell -ExecutionPolicy Bypass -File install.ps1
+powershell -ExecutionPolicy Bypass -File install.ps1 -Apply
+```
+
+指定目标时传入 `-Target`：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File install.ps1 -Target codex
+powershell -ExecutionPolicy Bypass -File install.ps1 -Target codex -Apply
+```
+
+3. 已经安装或 clone 本项目的环境，也可以直接从公开 zip 或 Git 安装：
+
+```bash
+python -m model_regression_eval.cli skill install \
+  --from-url https://github.com/wenxi96/model-regression-eval/archive/refs/heads/main.zip \
+  --target auto \
+  --project-root . \
+  --dry-run
+```
+
+确认预览结果后去掉 `--dry-run` 执行真实安装。`--target auto` 可替换为明确目标，例如 `--target codex`、`--target claude`、`--target cursor` 或 `--target web-manual`。
 
 ### Generate bootstrap scripts
 
 ```bash
 python -m model_regression_eval.cli skill bootstrap \
   --platform auto \
-  --source-url https://example.com/model_regression_eval.zip \
+  --source-url https://github.com/wenxi96/model-regression-eval/archive/refs/heads/main.zip \
   --out dist/install.sh
 
 python -m model_regression_eval.cli skill bootstrap \
   --platform windows \
-  --source-url https://example.com/model_regression_eval.zip \
+  --source-url https://github.com/wenxi96/model-regression-eval/archive/refs/heads/main.zip \
   --out dist/install.ps1
 ```
 
 `--platform auto` writes a Unix shell script on macOS/Linux/WSL and a PowerShell script on native Windows. The generated scripts preserve the original project root before entering temporary download directories, so URL/Git installs target the directory where the user or agent launched the script.
 
 ```bash
-python -m model_regression_eval.cli skill bootstrap --platform unix --source-url https://example.com/model_regression_eval.zip --out dist/install.sh
+python -m model_regression_eval.cli skill bootstrap --platform unix --source-url https://github.com/wenxi96/model-regression-eval/archive/refs/heads/main.zip --out dist/install.sh
 ```
 
 Recommended safe usage:
