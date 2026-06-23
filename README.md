@@ -538,6 +538,51 @@ python -m model_regression_eval.cli skill install \
   --dry-run
 ```
 
+### Third-party Agent distribution
+
+推荐给第三方 Agent 提供两种入口：
+
+1. 有仓库访问权限的 Agent，直接从 Git 安装：
+
+```bash
+python -m model_regression_eval.cli skill install \
+  --from-git https://github.com/wenxi96/model-regression-eval.git \
+  --ref main \
+  --target auto \
+  --project-root . \
+  --dry-run
+```
+
+确认预览结果后去掉 `--dry-run` 执行真实安装。也可以把 `--target auto` 改成明确目标，例如 `--target codex`、`--target claude`、`--target cursor` 或 `--target web-manual`。
+
+2. 面向无需预装本项目的“一键脚本”，先生成 bootstrap 脚本，再把脚本作为 GitHub Release asset、内部文件服务器文件或仓库内固定脚本路径分发：
+
+```bash
+python -m model_regression_eval.cli skill bootstrap \
+  --platform unix \
+  --git-url https://github.com/wenxi96/model-regression-eval.git \
+  --out dist/install-git.sh
+```
+
+第三方在目标项目根目录运行：
+
+```bash
+curl -fsSL <install-script-url> -o install.sh
+bash install.sh          # dry-run by default
+DRY_RUN=0 bash install.sh
+```
+
+如果仓库是 public，也可以生成基于 zip 下载的脚本，适合 GitHub Release 或 raw/static URL 分发：
+
+```bash
+python -m model_regression_eval.cli skill bootstrap \
+  --platform unix \
+  --source-url https://github.com/wenxi96/model-regression-eval/archive/refs/heads/main.zip \
+  --out dist/install.sh
+```
+
+注意：private 仓库的匿名 zip 下载通常会返回 `404`，这种情况下应使用 `--git-url` 脚本，或让第三方 Agent 的运行环境具备 GitHub 访问权限。
+
 ### Generate bootstrap scripts
 
 ```bash
