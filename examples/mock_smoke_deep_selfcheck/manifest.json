@@ -1,0 +1,21 @@
+{
+  "created_at": "2026-06-23T02:50:25",
+  "effort": "medium",
+  "estimated_prompt_tokens_with_repeats": 37705,
+  "legacy_profile_deep": false,
+  "max_observed_tokens": null,
+  "max_requests": null,
+  "model": null,
+  "repeat_source": "--depth deep",
+  "repeats": 5,
+  "request_count": 200,
+  "requested_depth": "deep",
+  "requested_profile": "smoke",
+  "resolved_depth": "deep",
+  "resolved_profile": "smoke",
+  "run_id": "mock_smoke_deep_selfcheck",
+  "runner": "mock",
+  "schema_path": "/mnt/data/mre_edit/model_regression_eval/schemas/final_answer.schema.json",
+  "task_count": 40,
+  "tasks_path": "/mnt/data/mre_edit/model_regression_eval/tasks/core.zh.jsonl"
+}

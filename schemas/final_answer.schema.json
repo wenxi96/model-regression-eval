@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "FinalAnswer",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "answer": {
+      "type": "string",
+      "description": "The final answer only, normalized as much as possible."
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "reasoning_summary": {
+      "type": "string",
+      "description": "One short sentence describing the key basis for the answer. Do not include hidden chain-of-thought."
+    }
+  },
+  "required": ["answer", "confidence", "reasoning_summary"]
+}

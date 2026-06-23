@@ -1,0 +1,244 @@
+{
+  "average_prompt_tokens": 188.525,
+  "by_domain": [
+    {
+      "average_prompt_tokens": 192.42857142857142,
+      "domain": "code",
+      "estimated_prompt_tokens": 1347,
+      "max_prompt_tokens": 210,
+      "tasks": 7
+    },
+    {
+      "average_prompt_tokens": 171.6,
+      "domain": "instruction",
+      "estimated_prompt_tokens": 858,
+      "max_prompt_tokens": 177,
+      "tasks": 5
+    },
+    {
+      "average_prompt_tokens": 200.75,
+      "domain": "logic",
+      "estimated_prompt_tokens": 1606,
+      "max_prompt_tokens": 220,
+      "tasks": 8
+    },
+    {
+      "average_prompt_tokens": 182.1818181818182,
+      "domain": "math",
+      "estimated_prompt_tokens": 2004,
+      "max_prompt_tokens": 193,
+      "tasks": 11
+    },
+    {
+      "average_prompt_tokens": 181.0,
+      "domain": "metacognition",
+      "estimated_prompt_tokens": 362,
+      "max_prompt_tokens": 185,
+      "tasks": 2
+    },
+    {
+      "average_prompt_tokens": 193.16666666666666,
+      "domain": "reading",
+      "estimated_prompt_tokens": 1159,
+      "max_prompt_tokens": 213,
+      "tasks": 6
+    },
+    {
+      "average_prompt_tokens": 205.0,
+      "domain": "robustness",
+      "estimated_prompt_tokens": 205,
+      "max_prompt_tokens": 205,
+      "tasks": 1
+    }
+  ],
+  "by_skill": [
+    {
+      "average_prompt_tokens": 177.0,
+      "estimated_prompt_tokens": 177,
+      "max_prompt_tokens": 177,
+      "skill": "ambiguity_detection",
+      "tasks": 1
+    },
+    {
+      "average_prompt_tokens": 177.5,
+      "estimated_prompt_tokens": 355,
+      "max_prompt_tokens": 183,
+      "skill": "boolean_logic",
+      "tasks": 2
+    },
+    {
+      "average_prompt_tokens": 173.0,
+      "estimated_prompt_tokens": 173,
+      "max_prompt_tokens": 173,
+      "skill": "boolean_precedence",
+      "tasks": 1
+    },
+    {
+      "average_prompt_tokens": 164.0,
+      "estimated_prompt_tokens": 328,
+      "max_prompt_tokens": 164,
+      "skill": "calculation",
+      "tasks": 2
+    },
+    {
+      "average_prompt_tokens": 220.0,
+      "estimated_prompt_tokens": 220,
+      "max_prompt_tokens": 220,
+      "skill": "constraint_satisfaction",
+      "tasks": 1
+    },
+    {
+      "average_prompt_tokens": 209.0,
+      "estimated_prompt_tokens": 209,
+      "max_prompt_tokens": 209,
+      "skill": "counterexample",
+      "tasks": 1
+    },
+    {
+      "average_prompt_tokens": 215.0,
+      "estimated_prompt_tokens": 215,
+      "max_prompt_tokens": 215,
+      "skill": "deduction",
+      "tasks": 1
+    },
+    {
+      "average_prompt_tokens": 210.0,
+      "estimated_prompt_tokens": 210,
+      "max_prompt_tokens": 210,
+      "skill": "exclusive_or",
+      "tasks": 1
+    },
+    {
+      "average_prompt_tokens": 191.5,
+      "estimated_prompt_tokens": 766,
+      "max_prompt_tokens": 195,
+      "skill": "execution_trace",
+      "tasks": 4
+    },
+    {
+      "average_prompt_tokens": 170.75,
+      "estimated_prompt_tokens": 683,
+      "max_prompt_tokens": 177,
+      "skill": "format_following",
+      "tasks": 4
+    },
+    {
+      "average_prompt_tokens": 188.0,
+      "estimated_prompt_tokens": 188,
+      "max_prompt_tokens": 188,
+      "skill": "inclusion_exclusion",
+      "tasks": 1
+    },
+    {
+      "average_prompt_tokens": 185.0,
+      "estimated_prompt_tokens": 185,
+      "max_prompt_tokens": 185,
+      "skill": "insufficient_information",
+      "tasks": 1
+    },
+    {
+      "average_prompt_tokens": 210.0,
+      "estimated_prompt_tokens": 210,
+      "max_prompt_tokens": 210,
+      "skill": "mutable_default_argument",
+      "tasks": 1
+    },
+    {
+      "average_prompt_tokens": 205.0,
+      "estimated_prompt_tokens": 205,
+      "max_prompt_tokens": 205,
+      "skill": "negation_handling",
+      "tasks": 1
+    },
+    {
+      "average_prompt_tokens": 205.0,
+      "estimated_prompt_tokens": 205,
+      "max_prompt_tokens": 205,
+      "skill": "negation_trap",
+      "tasks": 1
+    },
+    {
+      "average_prompt_tokens": 175.0,
+      "estimated_prompt_tokens": 175,
+      "max_prompt_tokens": 175,
+      "skill": "ordered_output",
+      "tasks": 1
+    },
+    {
+      "average_prompt_tokens": 192.0,
+      "estimated_prompt_tokens": 192,
+      "max_prompt_tokens": 192,
+      "skill": "ordering",
+      "tasks": 1
+    },
+    {
+      "average_prompt_tokens": 170.0,
+      "estimated_prompt_tokens": 170,
+      "max_prompt_tokens": 170,
+      "skill": "pattern_reasoning",
+      "tasks": 1
+    },
+    {
+      "average_prompt_tokens": 193.0,
+      "estimated_prompt_tokens": 193,
+      "max_prompt_tokens": 193,
+      "skill": "pigeonhole",
+      "tasks": 1
+    },
+    {
+      "average_prompt_tokens": 192.0,
+      "estimated_prompt_tokens": 192,
+      "max_prompt_tokens": 192,
+      "skill": "rate_reasoning",
+      "tasks": 1
+    },
+    {
+      "average_prompt_tokens": 198.0,
+      "estimated_prompt_tokens": 198,
+      "max_prompt_tokens": 198,
+      "skill": "recursion_trace",
+      "tasks": 1
+    },
+    {
+      "average_prompt_tokens": 188.0,
+      "estimated_prompt_tokens": 376,
+      "max_prompt_tokens": 192,
+      "skill": "short_context",
+      "tasks": 2
+    },
+    {
+      "average_prompt_tokens": 195.75,
+      "estimated_prompt_tokens": 783,
+      "max_prompt_tokens": 213,
+      "skill": "state_tracking",
+      "tasks": 4
+    },
+    {
+      "average_prompt_tokens": 185.0,
+      "estimated_prompt_tokens": 370,
+      "max_prompt_tokens": 185,
+      "skill": "statistics",
+      "tasks": 2
+    },
+    {
+      "average_prompt_tokens": 186.0,
+      "estimated_prompt_tokens": 186,
+      "max_prompt_tokens": 186,
+      "skill": "weighted_average",
+      "tasks": 1
+    },
+    {
+      "average_prompt_tokens": 188.5,
+      "estimated_prompt_tokens": 377,
+      "max_prompt_tokens": 191,
+      "skill": "word_problem",
+      "tasks": 2
+    }
+  ],
+  "estimated_prompt_tokens_per_run": 7541,
+  "estimated_prompt_tokens_with_repeats": 37705,
+  "max_prompt_tokens": 220,
+  "repeats": 5,
+  "requests": 200,
+  "tasks": 40
+}

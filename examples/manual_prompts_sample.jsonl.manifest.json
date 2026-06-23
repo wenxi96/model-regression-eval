@@ -1,0 +1,9 @@
+{
+  "repeats": 1,
+  "requested_depth": null,
+  "requested_profile": "smoke",
+  "requests": 5,
+  "resolved_depth": null,
+  "resolved_profile": "smoke",
+  "tasks": 5
+}

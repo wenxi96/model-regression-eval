@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Evaluation outputs
+runs/
+*.log
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# Local environment
+.env
+.env.*
+.DS_Store

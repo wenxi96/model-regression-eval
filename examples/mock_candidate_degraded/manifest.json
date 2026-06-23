@@ -1,0 +1,22 @@
+{
+  "created_at": "2026-06-23T03:21:26",
+  "effort": "medium",
+  "estimated_prompt_tokens_with_repeats": 56439,
+  "legacy_profile_deep": false,
+  "max_observed_tokens": null,
+  "max_requests": null,
+  "model": null,
+  "repeat_source": "--depth quick",
+  "repeats": 1,
+  "request_count": 300,
+  "requested_depth": "quick",
+  "requested_profile": "full",
+  "requested_runner": "mock",
+  "resolved_depth": "quick",
+  "resolved_profile": "full",
+  "run_id": "mock_baseline",
+  "runner": "mock",
+  "schema_path": "/mnt/data/mre_fix/model_regression_eval/schemas/final_answer.schema.json",
+  "task_count": 300,
+  "tasks_path": "/mnt/data/mre_fix/model_regression_eval/tasks/core.zh.jsonl"
+}

@@ -1,0 +1,5 @@
+{"task_id": "instruction_reverse_001", "repeat": 1, "answer": "edcba", "confidence": 1, "reasoning_summary": "sample import"}
+{"task_id": "math_pigeonhole_001", "repeat": 1, "answer": 10, "confidence": 1, "reasoning_summary": "sample import"}
+{"task_id": "reading_state_006", "repeat": 1, "answer": 51, "confidence": 1, "reasoning_summary": "sample import"}
+{"task_id": "code_recursion_001", "repeat": 1, "answer": 6, "confidence": 1, "reasoning_summary": "sample import"}
+{"task_id": "logic_ordering_011", "repeat": 1, "answer": "部署", "confidence": 1, "reasoning_summary": "sample import"}

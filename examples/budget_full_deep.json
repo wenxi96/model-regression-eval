@@ -1,0 +1,412 @@
+{
+  "average_prompt_tokens": 188.13,
+  "by_domain": [
+    {
+      "average_prompt_tokens": 192.8909090909091,
+      "domain": "code",
+      "estimated_prompt_tokens": 10609,
+      "max_prompt_tokens": 218,
+      "tasks": 55
+    },
+    {
+      "average_prompt_tokens": 172.3684210526316,
+      "domain": "instruction",
+      "estimated_prompt_tokens": 6550,
+      "max_prompt_tokens": 187,
+      "tasks": 38
+    },
+    {
+      "average_prompt_tokens": 201.71666666666667,
+      "domain": "logic",
+      "estimated_prompt_tokens": 12103,
+      "max_prompt_tokens": 246,
+      "tasks": 60
+    },
+    {
+      "average_prompt_tokens": 177.56470588235294,
+      "domain": "math",
+      "estimated_prompt_tokens": 15093,
+      "max_prompt_tokens": 292,
+      "tasks": 85
+    },
+    {
+      "average_prompt_tokens": 200.8,
+      "domain": "metacognition",
+      "estimated_prompt_tokens": 1004,
+      "max_prompt_tokens": 240,
+      "tasks": 5
+    },
+    {
+      "average_prompt_tokens": 196.95555555555555,
+      "domain": "reading",
+      "estimated_prompt_tokens": 8863,
+      "max_prompt_tokens": 232,
+      "tasks": 45
+    },
+    {
+      "average_prompt_tokens": 184.75,
+      "domain": "robustness",
+      "estimated_prompt_tokens": 2217,
+      "max_prompt_tokens": 220,
+      "tasks": 12
+    }
+  ],
+  "by_skill": [
+    {
+      "average_prompt_tokens": 165.5,
+      "estimated_prompt_tokens": 2317,
+      "max_prompt_tokens": 168,
+      "skill": "algebra",
+      "tasks": 14
+    },
+    {
+      "average_prompt_tokens": 208.5,
+      "estimated_prompt_tokens": 417,
+      "max_prompt_tokens": 240,
+      "skill": "ambiguity_detection",
+      "tasks": 2
+    },
+    {
+      "average_prompt_tokens": 181.0,
+      "estimated_prompt_tokens": 362,
+      "max_prompt_tokens": 181,
+      "skill": "average_trap",
+      "tasks": 2
+    },
+    {
+      "average_prompt_tokens": 179.28571428571428,
+      "estimated_prompt_tokens": 2510,
+      "max_prompt_tokens": 192,
+      "skill": "boolean_logic",
+      "tasks": 14
+    },
+    {
+      "average_prompt_tokens": 177.4,
+      "estimated_prompt_tokens": 887,
+      "max_prompt_tokens": 184,
+      "skill": "boolean_precedence",
+      "tasks": 5
+    },
+    {
+      "average_prompt_tokens": 164.0,
+      "estimated_prompt_tokens": 164,
+      "max_prompt_tokens": 164,
+      "skill": "boundary_condition",
+      "tasks": 1
+    },
+    {
+      "average_prompt_tokens": 205.66666666666666,
+      "estimated_prompt_tokens": 1234,
+      "max_prompt_tokens": 208,
+      "skill": "bug_reasoning",
+      "tasks": 6
+    },
+    {
+      "average_prompt_tokens": 162.73684210526315,
+      "estimated_prompt_tokens": 3092,
+      "max_prompt_tokens": 164,
+      "skill": "calculation",
+      "tasks": 19
+    },
+    {
+      "average_prompt_tokens": 177.5,
+      "estimated_prompt_tokens": 355,
+      "max_prompt_tokens": 178,
+      "skill": "case_sensitive_output",
+      "tasks": 2
+    },
+    {
+      "average_prompt_tokens": 220.5,
+      "estimated_prompt_tokens": 441,
+      "max_prompt_tokens": 240,
+      "skill": "conditional_reasoning",
+      "tasks": 2
+    },
+    {
+      "average_prompt_tokens": 224.66666666666666,
+      "estimated_prompt_tokens": 674,
+      "max_prompt_tokens": 232,
+      "skill": "conflict_resolution",
+      "tasks": 3
+    },
+    {
+      "average_prompt_tokens": 184.0,
+      "estimated_prompt_tokens": 368,
+      "max_prompt_tokens": 185,
+      "skill": "constraint_following",
+      "tasks": 2
+    },
+    {
+      "average_prompt_tokens": 236.0,
+      "estimated_prompt_tokens": 236,
+      "max_prompt_tokens": 236,
+      "skill": "constraint_reasoning",
+      "tasks": 1
+    },
+    {
+      "average_prompt_tokens": 220.0,
+      "estimated_prompt_tokens": 220,
+      "max_prompt_tokens": 220,
+      "skill": "constraint_satisfaction",
+      "tasks": 1
+    },
+    {
+      "average_prompt_tokens": 188.5,
+      "estimated_prompt_tokens": 754,
+      "max_prompt_tokens": 209,
+      "skill": "counterexample",
+      "tasks": 4
+    },
+    {
+      "average_prompt_tokens": 213.38888888888889,
+      "estimated_prompt_tokens": 3841,
+      "max_prompt_tokens": 225,
+      "skill": "deduction",
+      "tasks": 18
+    },
+    {
+      "average_prompt_tokens": 195.0,
+      "estimated_prompt_tokens": 390,
+      "max_prompt_tokens": 198,
+      "skill": "exactly_vs_at_least",
+      "tasks": 2
+    },
+    {
+      "average_prompt_tokens": 211.5,
+      "estimated_prompt_tokens": 423,
+      "max_prompt_tokens": 216,
+      "skill": "exception_reasoning",
+      "tasks": 2
+    },
+    {
+      "average_prompt_tokens": 210.0,
+      "estimated_prompt_tokens": 210,
+      "max_prompt_tokens": 210,
+      "skill": "exclusive_or",
+      "tasks": 1
+    },
+    {
+      "average_prompt_tokens": 192.25,
+      "estimated_prompt_tokens": 3845,
+      "max_prompt_tokens": 199,
+      "skill": "execution_trace",
+      "tasks": 20
+    },
+    {
+      "average_prompt_tokens": 171.63636363636363,
+      "estimated_prompt_tokens": 3776,
+      "max_prompt_tokens": 187,
+      "skill": "format_following",
+      "tasks": 22
+    },
+    {
+      "average_prompt_tokens": 192.66666666666666,
+      "estimated_prompt_tokens": 578,
+      "max_prompt_tokens": 196,
+      "skill": "inclusion_exclusion",
+      "tasks": 3
+    },
+    {
+      "average_prompt_tokens": 190.75,
+      "estimated_prompt_tokens": 1526,
+      "max_prompt_tokens": 195,
+      "skill": "indexing",
+      "tasks": 8
+    },
+    {
+      "average_prompt_tokens": 199.5,
+      "estimated_prompt_tokens": 798,
+      "max_prompt_tokens": 213,
+      "skill": "information_extraction",
+      "tasks": 4
+    },
+    {
+      "average_prompt_tokens": 195.66666666666666,
+      "estimated_prompt_tokens": 587,
+      "max_prompt_tokens": 202,
+      "skill": "insufficient_information",
+      "tasks": 3
+    },
+    {
+      "average_prompt_tokens": 214.0,
+      "estimated_prompt_tokens": 428,
+      "max_prompt_tokens": 218,
+      "skill": "mutable_default_argument",
+      "tasks": 2
+    },
+    {
+      "average_prompt_tokens": 199.0,
+      "estimated_prompt_tokens": 398,
+      "max_prompt_tokens": 201,
+      "skill": "mutable_state",
+      "tasks": 2
+    },
+    {
+      "average_prompt_tokens": 226.0,
+      "estimated_prompt_tokens": 678,
+      "max_prompt_tokens": 246,
+      "skill": "necessary_sufficient",
+      "tasks": 3
+    },
+    {
+      "average_prompt_tokens": 206.44444444444446,
+      "estimated_prompt_tokens": 1858,
+      "max_prompt_tokens": 220,
+      "skill": "negation_handling",
+      "tasks": 9
+    },
+    {
+      "average_prompt_tokens": 193.5,
+      "estimated_prompt_tokens": 387,
+      "max_prompt_tokens": 205,
+      "skill": "negation_trap",
+      "tasks": 2
+    },
+    {
+      "average_prompt_tokens": 176.33333333333334,
+      "estimated_prompt_tokens": 529,
+      "max_prompt_tokens": 182,
+      "skill": "ordered_output",
+      "tasks": 3
+    },
+    {
+      "average_prompt_tokens": 184.58333333333334,
+      "estimated_prompt_tokens": 2215,
+      "max_prompt_tokens": 214,
+      "skill": "ordering",
+      "tasks": 12
+    },
+    {
+      "average_prompt_tokens": 169.44444444444446,
+      "estimated_prompt_tokens": 1525,
+      "max_prompt_tokens": 170,
+      "skill": "pattern_reasoning",
+      "tasks": 9
+    },
+    {
+      "average_prompt_tokens": 181.0,
+      "estimated_prompt_tokens": 181,
+      "max_prompt_tokens": 181,
+      "skill": "percentage_trap",
+      "tasks": 1
+    },
+    {
+      "average_prompt_tokens": 195.08333333333334,
+      "estimated_prompt_tokens": 2341,
+      "max_prompt_tokens": 208,
+      "skill": "pigeonhole",
+      "tasks": 12
+    },
+    {
+      "average_prompt_tokens": 215.2,
+      "estimated_prompt_tokens": 1076,
+      "max_prompt_tokens": 232,
+      "skill": "policy_priority",
+      "tasks": 5
+    },
+    {
+      "average_prompt_tokens": 186.33333333333334,
+      "estimated_prompt_tokens": 559,
+      "max_prompt_tokens": 192,
+      "skill": "rate_reasoning",
+      "tasks": 3
+    },
+    {
+      "average_prompt_tokens": 198.0,
+      "estimated_prompt_tokens": 396,
+      "max_prompt_tokens": 198,
+      "skill": "recursion_trace",
+      "tasks": 2
+    },
+    {
+      "average_prompt_tokens": 188.0,
+      "estimated_prompt_tokens": 376,
+      "max_prompt_tokens": 188,
+      "skill": "scope_reasoning",
+      "tasks": 2
+    },
+    {
+      "average_prompt_tokens": 189.72222222222223,
+      "estimated_prompt_tokens": 3415,
+      "max_prompt_tokens": 214,
+      "skill": "short_context",
+      "tasks": 18
+    },
+    {
+      "average_prompt_tokens": 191.625,
+      "estimated_prompt_tokens": 3066,
+      "max_prompt_tokens": 213,
+      "skill": "state_tracking",
+      "tasks": 16
+    },
+    {
+      "average_prompt_tokens": 184.0,
+      "estimated_prompt_tokens": 1288,
+      "max_prompt_tokens": 185,
+      "skill": "statistics",
+      "tasks": 7
+    },
+    {
+      "average_prompt_tokens": 169.5,
+      "estimated_prompt_tokens": 1356,
+      "max_prompt_tokens": 180,
+      "skill": "structured_answer",
+      "tasks": 8
+    },
+    {
+      "average_prompt_tokens": 200.0,
+      "estimated_prompt_tokens": 400,
+      "max_prompt_tokens": 201,
+      "skill": "truthfulness",
+      "tasks": 2
+    },
+    {
+      "average_prompt_tokens": 234.0,
+      "estimated_prompt_tokens": 234,
+      "max_prompt_tokens": 234,
+      "skill": "truthfulness_reasoning",
+      "tasks": 1
+    },
+    {
+      "average_prompt_tokens": 162.14285714285714,
+      "estimated_prompt_tokens": 1135,
+      "max_prompt_tokens": 163,
+      "skill": "unit_conversion",
+      "tasks": 7
+    },
+    {
+      "average_prompt_tokens": 167.5,
+      "estimated_prompt_tokens": 335,
+      "max_prompt_tokens": 172,
+      "skill": "unit_trap",
+      "tasks": 2
+    },
+    {
+      "average_prompt_tokens": 188.33333333333334,
+      "estimated_prompt_tokens": 565,
+      "max_prompt_tokens": 190,
+      "skill": "weighted_average",
+      "tasks": 3
+    },
+    {
+      "average_prompt_tokens": 190.33333333333334,
+      "estimated_prompt_tokens": 1142,
+      "max_prompt_tokens": 192,
+      "skill": "word_problem",
+      "tasks": 6
+    },
+    {
+      "average_prompt_tokens": 275.5,
+      "estimated_prompt_tokens": 551,
+      "max_prompt_tokens": 292,
+      "skill": "worst_case_reasoning",
+      "tasks": 2
+    }
+  ],
+  "estimated_prompt_tokens_per_run": 56439,
+  "estimated_prompt_tokens_with_repeats": 282195,
+  "max_prompt_tokens": 292,
+  "repeats": 5,
+  "requests": 1500,
+  "tasks": 300
+}

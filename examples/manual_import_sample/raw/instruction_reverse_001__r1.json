@@ -1,0 +1,7 @@
+{
+  "task_id": "instruction_reverse_001",
+  "repeat": 1,
+  "answer": "edcba",
+  "confidence": 1,
+  "reasoning_summary": "sample import"
+}

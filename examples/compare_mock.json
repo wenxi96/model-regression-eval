@@ -1,0 +1,344 @@
+{
+  "baseline_accuracy": 1.0,
+  "baseline_majority_accuracy": 1.0,
+  "baseline_task_count": 300,
+  "baseline_weighted_accuracy": 1.0,
+  "by_domain": [
+    {
+      "baseline_accuracy": 1.0,
+      "candidate_accuracy": 1.0,
+      "delta_accuracy": 0.0,
+      "domain": "code",
+      "improvements": 0,
+      "n": 55,
+      "regressions": 0
+    },
+    {
+      "baseline_accuracy": 1.0,
+      "candidate_accuracy": 1.0,
+      "delta_accuracy": 0.0,
+      "domain": "instruction",
+      "improvements": 0,
+      "n": 38,
+      "regressions": 0
+    },
+    {
+      "baseline_accuracy": 1.0,
+      "candidate_accuracy": 0.9333333333333333,
+      "delta_accuracy": -0.06666666666666665,
+      "domain": "logic",
+      "improvements": 0,
+      "n": 60,
+      "regressions": 4
+    },
+    {
+      "baseline_accuracy": 1.0,
+      "candidate_accuracy": 0.9176470588235294,
+      "delta_accuracy": -0.08235294117647063,
+      "domain": "math",
+      "improvements": 0,
+      "n": 85,
+      "regressions": 7
+    },
+    {
+      "baseline_accuracy": 1.0,
+      "candidate_accuracy": 0.8,
+      "delta_accuracy": -0.19999999999999996,
+      "domain": "metacognition",
+      "improvements": 0,
+      "n": 5,
+      "regressions": 1
+    },
+    {
+      "baseline_accuracy": 1.0,
+      "candidate_accuracy": 1.0,
+      "delta_accuracy": 0.0,
+      "domain": "reading",
+      "improvements": 0,
+      "n": 45,
+      "regressions": 0
+    },
+    {
+      "baseline_accuracy": 1.0,
+      "candidate_accuracy": 1.0,
+      "delta_accuracy": 0.0,
+      "domain": "robustness",
+      "improvements": 0,
+      "n": 12,
+      "regressions": 0
+    }
+  ],
+  "candidate_accuracy": 0.96,
+  "candidate_majority_accuracy": 0.96,
+  "candidate_task_count": 300,
+  "candidate_weighted_accuracy": 0.96,
+  "common_task_count": 300,
+  "delta_accuracy": -0.040000000000000036,
+  "delta_majority_accuracy": -0.040000000000000036,
+  "domain_mismatch_count": 0,
+  "domain_mismatch_items": [],
+  "improvement_items": [],
+  "improvements": 0,
+  "mcnemar_exact_p": 0.00048828125,
+  "mcnemar_exact_p_task_majority": 0.00048828125,
+  "missing_baseline_cases": 0,
+  "missing_candidate_cases": 0,
+  "net_regressions": 12,
+  "net_stable_regressions": 12,
+  "paired_cases": 300,
+  "paired_tasks": 300,
+  "regression_items": [
+    {
+      "baseline_answer": "19",
+      "candidate_answer": "__synthetic_wrong__",
+      "candidate_detail": "Synthetic degraded example.",
+      "candidate_failure_mode": "synthetic_regression",
+      "domain": "math",
+      "expected": 19,
+      "repeat": 1,
+      "skill": "calculation",
+      "task_id": "arithmetic_order_001"
+    },
+    {
+      "baseline_answer": "C",
+      "candidate_answer": "__synthetic_wrong__",
+      "candidate_detail": "Synthetic degraded example.",
+      "candidate_failure_mode": "synthetic_regression",
+      "domain": "logic",
+      "expected": "C",
+      "repeat": 1,
+      "skill": "constraint_reasoning",
+      "task_id": "box_labels_001"
+    },
+    {
+      "baseline_answer": "歧义,21,29",
+      "candidate_answer": "__synthetic_wrong__",
+      "candidate_detail": "Synthetic degraded example.",
+      "candidate_failure_mode": "synthetic_regression",
+      "domain": "metacognition",
+      "expected": [
+        "歧义",
+        "21",
+        "29"
+      ],
+      "repeat": 1,
+      "skill": "ambiguity_detection",
+      "task_id": "candy_ambiguity_001"
+    },
+    {
+      "baseline_answer": "29",
+      "candidate_answer": "__synthetic_wrong__",
+      "candidate_detail": "Synthetic degraded example.",
+      "candidate_failure_mode": "synthetic_regression",
+      "domain": "math",
+      "expected": 29,
+      "repeat": 1,
+      "skill": "worst_case_reasoning",
+      "task_id": "candy_blind_draw_001"
+    },
+    {
+      "baseline_answer": "21",
+      "candidate_answer": "__synthetic_wrong__",
+      "candidate_detail": "Synthetic degraded example.",
+      "candidate_failure_mode": "synthetic_regression",
+      "domain": "math",
+      "expected": 21,
+      "repeat": 1,
+      "skill": "worst_case_reasoning",
+      "task_id": "candy_shape_select_001"
+    },
+    {
+      "baseline_answer": "B",
+      "candidate_answer": "__synthetic_wrong__",
+      "candidate_detail": "Synthetic degraded example.",
+      "candidate_failure_mode": "synthetic_regression",
+      "domain": "logic",
+      "expected": "B",
+      "repeat": 1,
+      "skill": "deduction",
+      "task_id": "conditional_001"
+    },
+    {
+      "baseline_answer": "D",
+      "candidate_answer": "__synthetic_wrong__",
+      "candidate_detail": "Synthetic degraded example.",
+      "candidate_failure_mode": "synthetic_regression",
+      "domain": "logic",
+      "expected": "D",
+      "repeat": 1,
+      "skill": "truthfulness_reasoning",
+      "task_id": "knights_knaves_001"
+    },
+    {
+      "baseline_answer": "丁",
+      "candidate_answer": "__synthetic_wrong__",
+      "candidate_detail": "Synthetic degraded example.",
+      "candidate_failure_mode": "synthetic_regression",
+      "domain": "logic",
+      "expected": "丁",
+      "repeat": 1,
+      "skill": "ordering",
+      "task_id": "logic_ordering_001"
+    },
+    {
+      "baseline_answer": "15",
+      "candidate_answer": "__synthetic_wrong__",
+      "candidate_detail": "Synthetic degraded example.",
+      "candidate_failure_mode": "synthetic_regression",
+      "domain": "math",
+      "expected": 15,
+      "repeat": 1,
+      "skill": "pigeonhole",
+      "task_id": "pigeonhole_colors_001"
+    },
+    {
+      "baseline_answer": "2.4",
+      "candidate_answer": "__synthetic_wrong__",
+      "candidate_detail": "Synthetic degraded example.",
+      "candidate_failure_mode": "synthetic_regression",
+      "domain": "math",
+      "expected": 2.4,
+      "repeat": 1,
+      "skill": "word_problem",
+      "task_id": "rate_work_001"
+    },
+    {
+      "baseline_answer": "42",
+      "candidate_answer": "__synthetic_wrong__",
+      "candidate_detail": "Synthetic degraded example.",
+      "candidate_failure_mode": "synthetic_regression",
+      "domain": "math",
+      "expected": 42,
+      "repeat": 1,
+      "skill": "pattern_reasoning",
+      "task_id": "sequence_001"
+    },
+    {
+      "baseline_answer": "5",
+      "candidate_answer": "__synthetic_wrong__",
+      "candidate_detail": "Synthetic degraded example.",
+      "candidate_failure_mode": "synthetic_regression",
+      "domain": "math",
+      "expected": 5,
+      "repeat": 1,
+      "skill": "pigeonhole",
+      "task_id": "socks_pair_001"
+    }
+  ],
+  "regressions": 12,
+  "stable_improvement_items": [],
+  "stable_improvements": 0,
+  "stable_regression_items": [
+    {
+      "baseline_correct_repeats": 1,
+      "baseline_valid_repeats": 1,
+      "candidate_correct_repeats": 0,
+      "candidate_valid_repeats": 1,
+      "domain": "math",
+      "skill": "calculation",
+      "task_id": "arithmetic_order_001"
+    },
+    {
+      "baseline_correct_repeats": 1,
+      "baseline_valid_repeats": 1,
+      "candidate_correct_repeats": 0,
+      "candidate_valid_repeats": 1,
+      "domain": "logic",
+      "skill": "constraint_reasoning",
+      "task_id": "box_labels_001"
+    },
+    {
+      "baseline_correct_repeats": 1,
+      "baseline_valid_repeats": 1,
+      "candidate_correct_repeats": 0,
+      "candidate_valid_repeats": 1,
+      "domain": "metacognition",
+      "skill": "ambiguity_detection",
+      "task_id": "candy_ambiguity_001"
+    },
+    {
+      "baseline_correct_repeats": 1,
+      "baseline_valid_repeats": 1,
+      "candidate_correct_repeats": 0,
+      "candidate_valid_repeats": 1,
+      "domain": "math",
+      "skill": "worst_case_reasoning",
+      "task_id": "candy_blind_draw_001"
+    },
+    {
+      "baseline_correct_repeats": 1,
+      "baseline_valid_repeats": 1,
+      "candidate_correct_repeats": 0,
+      "candidate_valid_repeats": 1,
+      "domain": "math",
+      "skill": "worst_case_reasoning",
+      "task_id": "candy_shape_select_001"
+    },
+    {
+      "baseline_correct_repeats": 1,
+      "baseline_valid_repeats": 1,
+      "candidate_correct_repeats": 0,
+      "candidate_valid_repeats": 1,
+      "domain": "logic",
+      "skill": "deduction",
+      "task_id": "conditional_001"
+    },
+    {
+      "baseline_correct_repeats": 1,
+      "baseline_valid_repeats": 1,
+      "candidate_correct_repeats": 0,
+      "candidate_valid_repeats": 1,
+      "domain": "logic",
+      "skill": "truthfulness_reasoning",
+      "task_id": "knights_knaves_001"
+    },
+    {
+      "baseline_correct_repeats": 1,
+      "baseline_valid_repeats": 1,
+      "candidate_correct_repeats": 0,
+      "candidate_valid_repeats": 1,
+      "domain": "logic",
+      "skill": "ordering",
+      "task_id": "logic_ordering_001"
+    },
+    {
+      "baseline_correct_repeats": 1,
+      "baseline_valid_repeats": 1,
+      "candidate_correct_repeats": 0,
+      "candidate_valid_repeats": 1,
+      "domain": "math",
+      "skill": "pigeonhole",
+      "task_id": "pigeonhole_colors_001"
+    },
+    {
+      "baseline_correct_repeats": 1,
+      "baseline_valid_repeats": 1,
+      "candidate_correct_repeats": 0,
+      "candidate_valid_repeats": 1,
+      "domain": "math",
+      "skill": "word_problem",
+      "task_id": "rate_work_001"
+    },
+    {
+      "baseline_correct_repeats": 1,
+      "baseline_valid_repeats": 1,
+      "candidate_correct_repeats": 0,
+      "candidate_valid_repeats": 1,
+      "domain": "math",
+      "skill": "pattern_reasoning",
+      "task_id": "sequence_001"
+    },
+    {
+      "baseline_correct_repeats": 1,
+      "baseline_valid_repeats": 1,
+      "candidate_correct_repeats": 0,
+      "candidate_valid_repeats": 1,
+      "domain": "math",
+      "skill": "pigeonhole",
+      "task_id": "socks_pair_001"
+    }
+  ],
+  "stable_regressions": 12,
+  "task_overlap_rate": 1.0,
+  "warnings": []
+}
