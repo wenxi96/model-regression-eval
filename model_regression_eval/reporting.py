@@ -25,6 +25,15 @@ def _percent(x: float | None) -> str:
     return f"{x * 100:.1f}%"
 
 
+def _report_title(title: str) -> str:
+    mapping = {
+        "Model Capability Regression Run": "模型能力回归评测报告",
+        "Imported Manual/External Agent Run": "手工/外部 Agent 导入评测报告",
+        "Imported Session Agent Run": "会话 Agent 导入评测报告",
+    }
+    return mapping.get(title, title)
+
+
 def weighted_accuracy(rows: Iterable[dict[str, Any]]) -> float | None:
     total_weight = 0.0
     correct_weight = 0.0
@@ -39,11 +48,52 @@ def weighted_accuracy(rows: Iterable[dict[str, Any]]) -> float | None:
     return correct_weight / total_weight
 
 
+def weighted_score(rows: Iterable[dict[str, Any]]) -> float | None:
+    total_weight = 0.0
+    score_weight = 0.0
+    for row in rows:
+        if row.get("valid") is False:
+            continue
+        score = _safe_float(row.get("score"))
+        if score is None:
+            continue
+        weight = float(row.get("weight", 1.0))
+        total_weight += weight
+        score_weight += weight * score
+    if total_weight <= 0:
+        return None
+    return score_weight / total_weight
+
+
 def simple_accuracy(rows: Iterable[dict[str, Any]]) -> float | None:
     usable = [r for r in rows if r.get("valid") is not False]
     if not usable:
         return None
     return sum(1 for r in usable if r.get("correct")) / len(usable)
+
+
+def mean_score(rows: Iterable[dict[str, Any]]) -> float | None:
+    usable = [r for r in rows if r.get("valid") is not False and _safe_float(r.get("score")) is not None]
+    if not usable:
+        return None
+    return sum(float(r.get("score")) for r in usable) / len(usable)
+
+
+def confidence_summary(rows: Iterable[dict[str, Any]]) -> dict[str, Any]:
+    usable = [r for r in rows if r.get("valid") is not False and _safe_float(r.get("confidence")) is not None]
+    if not usable:
+        return {
+            "mean_confidence": None,
+            "high_confidence_error_rate": None,
+            "confidence_sample_count": 0,
+        }
+    confidences = [float(r.get("confidence")) for r in usable]
+    high_conf = [r for r in usable if float(r.get("confidence")) >= 0.8]
+    return {
+        "mean_confidence": sum(confidences) / len(confidences),
+        "high_confidence_error_rate": (sum(1 for r in high_conf if not r.get("correct")) / len(high_conf)) if high_conf else None,
+        "confidence_sample_count": len(usable),
+    }
 
 
 def median_field(rows: Iterable[dict[str, Any]], field: str) -> float | None:
@@ -166,7 +216,9 @@ def group_summary(rows: list[dict[str, Any]], key: str) -> list[dict[str, Any]]:
                 "n": len(items),
                 "tasks": rep["task_count"],
                 "accuracy": simple_accuracy(items),
+                "score": mean_score(items),
                 "weighted_accuracy": weighted_accuracy(items),
+                "weighted_score": weighted_score(items),
                 "majority_accuracy": rep["majority_accuracy"],
                 "consistency_rate": rep["consistency_rate"],
                 "format_error_rate": rate(items, "format_error"),
@@ -199,12 +251,29 @@ def tool_violation_rate(rows: Iterable[dict[str, Any]]) -> float | None:
 
 def summarize_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
     rep = repetition_summary(rows)
+    runner_counts: dict[str, int] = {}
+    for row in rows:
+        runner = str(row.get("runner") or "unknown")
+        runner_counts[runner] = runner_counts.get(runner, 0) + 1
+    warnings: list[str] = []
+    mock_cases = runner_counts.get("mock", 0)
+    if mock_cases:
+        if mock_cases == len(rows):
+            warnings.append("本次运行全部使用 mock runner。这只代表安装、题库加载和判分自检，不是真实模型或 Agent 能力评测。")
+        else:
+            warnings.append("本次运行包含 mock runner 样本。mock 会直接返回期望答案，不能混入真实能力结论。")
+    conf = confidence_summary(rows)
     return {
         "n": len(rows),
+        "runner_counts": runner_counts,
+        "warnings": warnings,
+        "is_mock_selfcheck": bool(rows) and mock_cases == len(rows),
         "task_count": rep["task_count"],
         "max_repeats_per_task": rep["max_repeats_per_task"],
         "accuracy": simple_accuracy(rows),
+        "score": mean_score(rows),
         "weighted_accuracy": weighted_accuracy(rows),
+        "weighted_score": weighted_score(rows),
         "majority_accuracy": rep["majority_accuracy"],
         "any_correct_rate": rep["any_correct_rate"],
         "all_correct_rate": rep["all_correct_rate"],
@@ -226,41 +295,56 @@ def summarize_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "total_output_tokens": sum_field(rows, "output_tokens"),
         "total_reasoning_tokens": sum_field(rows, "reasoning_output_tokens"),
         "observed_io_tokens": observed_io_tokens(rows),
+        "mean_confidence": conf["mean_confidence"],
+        "high_confidence_error_rate": conf["high_confidence_error_rate"],
+        "confidence_sample_count": conf["confidence_sample_count"],
         "by_domain": group_summary(rows, "domain"),
         "by_skill": group_summary(rows, "skill"),
+        "by_difficulty": group_summary(rows, "difficulty"),
+        "by_tier": group_summary(rows, "tier"),
+        "by_answer_mode": group_summary(rows, "answer_mode"),
     }
 
 
 def markdown_summary(title: str, summary: dict[str, Any], rows: list[dict[str, Any]] | None = None) -> str:
-    lines = [f"# {title}", ""]
+    lines = [f"# {_report_title(title)}", ""]
+    if summary.get("warnings"):
+        lines += ["## 警告", ""]
+        for warning in summary["warnings"]:
+            lines.append(f"- {warning}")
+        lines.append("")
     lines += [
-        f"- Cases: {summary['n']}",
-        f"- Unique tasks: {summary.get('task_count', '-')}",
-        f"- Max repeats per task: {summary.get('max_repeats_per_task', '-')}",
-        f"- Accuracy: {_percent(summary['accuracy'])}",
-        f"- Weighted accuracy: {_percent(summary['weighted_accuracy'])}",
-        f"- Majority accuracy by task: {_percent(summary.get('majority_accuracy'))}",
-        f"- Any-correct rate by task: {_percent(summary.get('any_correct_rate'))}",
-        f"- All-correct rate by task: {_percent(summary.get('all_correct_rate'))}",
-        f"- Consistency rate by task: {_percent(summary.get('consistency_rate'))}",
-        f"- Tie rate by task: {_percent(summary.get('tie_rate'))}",
-        f"- Unstable tasks: {summary.get('unstable_task_count', 0)}",
-        f"- Stable failure tasks: {summary.get('stable_failure_count', 0)}",
-        f"- Format error rate: {_percent(summary['format_error_rate'])}",
-        f"- Tool violation rate: {_percent(summary['tool_violation_rate'])}",
-        f"- Tool violation unknown rate: {_percent(summary.get('tool_violation_unknown_rate'))}",
-        f"- Median input tokens: {fmt_num(summary.get('median_input_tokens'))}",
-        f"- Median output tokens: {fmt_num(summary.get('median_output_tokens'))}",
-        f"- Median reasoning tokens: {fmt_num(summary['median_reasoning_tokens'])}",
-        f"- Median latency: {fmt_num(summary['median_latency_s'])} s",
-        f"- Total input tokens: {fmt_num(summary.get('total_input_tokens'))}",
-        f"- Total output tokens: {fmt_num(summary.get('total_output_tokens'))}",
-        f"- Total reasoning tokens: {fmt_num(summary.get('total_reasoning_tokens'))}",
-        f"- Observed input+output tokens: {fmt_num(summary.get('observed_io_tokens'))}",
+        f"- 样本数：{summary['n']}",
+        f"- 唯一题目数：{summary.get('task_count', '-')}",
+        f"- 单题最大重复次数：{summary.get('max_repeats_per_task', '-')}",
+        f"- 准确率：{_percent(summary['accuracy'])}",
+        f"- 平均得分：{_percent(summary.get('score'))}",
+        f"- 加权准确率：{_percent(summary['weighted_accuracy'])}",
+        f"- 加权得分：{_percent(summary.get('weighted_score'))}",
+        f"- 按题多数投票准确率：{_percent(summary.get('majority_accuracy'))}",
+        f"- 按题至少一次正确率：{_percent(summary.get('any_correct_rate'))}",
+        f"- 按题全部正确率：{_percent(summary.get('all_correct_rate'))}",
+        f"- 按题一致率：{_percent(summary.get('consistency_rate'))}",
+        f"- 按题平票率：{_percent(summary.get('tie_rate'))}",
+        f"- 不稳定题目数：{summary.get('unstable_task_count', 0)}",
+        f"- 稳定失败题目数：{summary.get('stable_failure_count', 0)}",
+        f"- 格式错误率：{_percent(summary['format_error_rate'])}",
+        f"- 工具违规率：{_percent(summary['tool_violation_rate'])}",
+        f"- 工具违规未知率：{_percent(summary.get('tool_violation_unknown_rate'))}",
+        f"- 输入 token 中位数：{fmt_num(summary.get('median_input_tokens'))}",
+        f"- 输出 token 中位数：{fmt_num(summary.get('median_output_tokens'))}",
+        f"- 推理 token 中位数：{fmt_num(summary['median_reasoning_tokens'])}",
+        f"- 延迟中位数：{fmt_num(summary['median_latency_s'])} 秒",
+        f"- 输入 token 总数：{fmt_num(summary.get('total_input_tokens'))}",
+        f"- 输出 token 总数：{fmt_num(summary.get('total_output_tokens'))}",
+        f"- 推理 token 总数：{fmt_num(summary.get('total_reasoning_tokens'))}",
+        f"- 已观测输入+输出 token：{fmt_num(summary.get('observed_io_tokens'))}",
+        f"- 平均置信度：{_percent(summary.get('mean_confidence'))}",
+        f"- 高置信错误率(confidence>=0.8)：{_percent(summary.get('high_confidence_error_rate'))}",
         "",
-        "## By domain",
+        "## 按领域统计",
         "",
-        "| domain | cases | tasks | accuracy | majority | consistency | weighted | format errors | tool violations | tool unknown | total in | total out | total reasoning | median reasoning | median latency s |",
+        "| 领域 | 样本 | 题目 | 准确率 | 多数投票 | 一致率 | 加权准确率 | 格式错误 | 工具违规 | 工具未知 | 输入总数 | 输出总数 | 推理总数 | 推理中位数 | 延迟中位数(秒) |",
         "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for item in summary["by_domain"]:
@@ -271,20 +355,32 @@ def markdown_summary(title: str, summary: dict[str, Any], rows: list[dict[str, A
             f"{fmt_num(item.get('total_input_tokens'))} | {fmt_num(item.get('total_output_tokens'))} | {fmt_num(item.get('total_reasoning_tokens'))} | "
             f"{fmt_num(item['median_reasoning_tokens'])} | {fmt_num(item['median_latency_s'])} |"
         )
+    for section_title, key, items in [
+        ("## 按难度统计", "difficulty", summary.get("by_difficulty") or []),
+        ("## 按层级统计", "tier", summary.get("by_tier") or []),
+        ("## 按答案模式统计", "answer_mode", summary.get("by_answer_mode") or []),
+    ]:
+        if items:
+            lines += ["", section_title, "", f"| {key} | 样本 | 题目 | 准确率 | 平均得分 | 加权得分 | 一致率 |", "|---|---:|---:|---:|---:|---:|---:|"]
+            for item in items:
+                lines.append(
+                    f"| {esc(item[key])} | {item['n']} | {item['tasks']} | {_percent(item['accuracy'])} | "
+                    f"{_percent(item.get('score'))} | {_percent(item.get('weighted_score'))} | {_percent(item.get('consistency_rate'))} |"
+                )
     if rows:
         failures = [r for r in rows if not r.get("correct")]
         if failures:
-            lines += ["", "## Failures", "", "| task | repeat | domain | skill | failure mode | answer | expected | detail |", "|---|---:|---|---|---|---|---|---|"]
+            lines += ["", "## 错误样本", "", "| 题目 | 轮次 | 领域 | 技能 | 失败模式 | 回答 | 期望 | 详情 |", "|---|---:|---|---|---|---|---|---|"]
             for r in failures[:50]:
                 lines.append(
                     f"| {esc(r.get('task_id'))} | {r.get('repeat')} | {esc(r.get('domain'))} | {esc(r.get('skill'))} | "
                     f"{esc(r.get('failure_mode'))} | {esc(r.get('answer'))} | {esc(r.get('expected'))} | {esc(r.get('grade_detail'))} |"
                 )
             if len(failures) > 50:
-                lines.append(f"\nOnly showing first 50 failures of {len(failures)}.")
+                lines.append(f"\n仅展示前 50 条错误样本，共 {len(failures)} 条。")
         unstable = summary.get("unstable_items") or []
         if unstable:
-            lines += ["", "## Unstable tasks", "", "| task | domain | skill | correct / repeats |", "|---|---|---|---:|"]
+            lines += ["", "## 不稳定题目", "", "| 题目 | 领域 | 技能 | 正确次数 / 有效次数 |", "|---|---|---|---:|"]
             for item in unstable[:50]:
                 lines.append(
                     f"| {esc(item.get('task_id'))} | {esc(item.get('domain'))} | {esc(item.get('skill'))} | "
@@ -346,14 +442,14 @@ def compare_rows(baseline: list[dict[str, Any]], candidate: list[dict[str, Any]]
     warnings: list[str] = []
     if base_task_ids != cand_task_ids:
         warnings.append(
-            f"Task sets differ: baseline={len(base_task_ids)}, candidate={len(cand_task_ids)}, common={len(common_task_ids)}. "
-            "Only common (task_id, repeat) pairs are compared."
+            f"任务集不一致：基线={len(base_task_ids)}，候选={len(cand_task_ids)}，共同题目={len(common_task_ids)}。"
+            "仅比较共同的 (task_id, repeat) 样本。"
         )
     missing_baseline_cases = len(set(cand_map) - set(base_map))
     missing_candidate_cases = len(set(base_map) - set(cand_map))
     if missing_baseline_cases or missing_candidate_cases:
         warnings.append(
-            f"Case sets differ: missing_in_baseline={missing_baseline_cases}, missing_in_candidate={missing_candidate_cases}."
+            f"样本集不一致：基线缺失={missing_baseline_cases}，候选缺失={missing_candidate_cases}。"
         )
     domain_mismatches = [
         {
@@ -366,7 +462,7 @@ def compare_rows(baseline: list[dict[str, Any]], candidate: list[dict[str, Any]]
         if str(b.get("domain", "unknown")) != str(c.get("domain", "unknown"))
     ]
     if domain_mismatches:
-        warnings.append(f"Domain mismatch in {len(domain_mismatches)} paired cases. By-domain rows use 'baseline -> candidate' labels for mismatches.")
+        warnings.append(f"配对样本中有 {len(domain_mismatches)} 条领域不一致。按领域统计对不一致项使用 '基线 -> 候选' 方向标签。")
 
     def pair_domain(b: dict[str, Any], c: dict[str, Any]) -> str:
         bd = str(b.get("domain", "unknown"))
@@ -483,35 +579,35 @@ def comparison_item(b: dict[str, Any], c: dict[str, Any]) -> dict[str, Any]:
 
 
 def markdown_compare(summary: dict[str, Any]) -> str:
-    lines = ["# Model Capability Regression Compare", ""]
+    lines = ["# 模型能力回归对比报告", ""]
     if summary.get("warnings"):
-        lines += ["## Warnings", ""]
+        lines += ["## 警告", ""]
         for warning in summary["warnings"]:
             lines.append(f"- {esc(warning)}")
         lines.append("")
     lines += [
-        f"- Paired cases: {summary['paired_cases']}",
-        f"- Paired tasks: {summary.get('paired_tasks', '-')}",
-        f"- Task overlap rate: {_percent(summary.get('task_overlap_rate'))}",
-        f"- Domain mismatches: {summary.get('domain_mismatch_count', 0)}",
-        f"- Baseline case accuracy: {_percent(summary['baseline_accuracy'])}",
-        f"- Candidate case accuracy: {_percent(summary['candidate_accuracy'])}",
-        f"- Delta case accuracy: {fmt_delta(summary['delta_accuracy'])}",
-        f"- Baseline majority accuracy: {_percent(summary.get('baseline_majority_accuracy'))}",
-        f"- Candidate majority accuracy: {_percent(summary.get('candidate_majority_accuracy'))}",
-        f"- Delta majority accuracy: {fmt_delta(summary.get('delta_majority_accuracy'))}",
-        f"- Case regressions: {summary['regressions']}",
-        f"- Case improvements: {summary['improvements']}",
-        f"- Net case regressions: {summary['net_regressions']}",
-        f"- Stable task regressions: {summary.get('stable_regressions', 0)}",
-        f"- Stable task improvements: {summary.get('stable_improvements', 0)}",
-        f"- Net stable task regressions: {summary.get('net_stable_regressions', 0)}",
-        f"- McNemar/sign-test exact p-value, cases: {fmt_num(summary['mcnemar_exact_p'])}",
-        f"- McNemar/sign-test exact p-value, task majority: {fmt_num(summary.get('mcnemar_exact_p_task_majority'))}",
+        f"- 配对样本数：{summary['paired_cases']}",
+        f"- 配对题目数：{summary.get('paired_tasks', '-')}",
+        f"- 题目重叠率：{_percent(summary.get('task_overlap_rate'))}",
+        f"- 领域不一致数：{summary.get('domain_mismatch_count', 0)}",
+        f"- 基线样本准确率：{_percent(summary['baseline_accuracy'])}",
+        f"- 候选样本准确率：{_percent(summary['candidate_accuracy'])}",
+        f"- 样本准确率差异：{fmt_delta(summary['delta_accuracy'])}",
+        f"- 基线多数投票准确率：{_percent(summary.get('baseline_majority_accuracy'))}",
+        f"- 候选多数投票准确率：{_percent(summary.get('candidate_majority_accuracy'))}",
+        f"- 多数投票准确率差异：{fmt_delta(summary.get('delta_majority_accuracy'))}",
+        f"- 样本级回归数：{summary['regressions']}",
+        f"- 样本级改进数：{summary['improvements']}",
+        f"- 样本级净回归数：{summary['net_regressions']}",
+        f"- 稳定题目回归数：{summary.get('stable_regressions', 0)}",
+        f"- 稳定题目改进数：{summary.get('stable_improvements', 0)}",
+        f"- 稳定题目净回归数：{summary.get('net_stable_regressions', 0)}",
+        f"- McNemar/sign-test 精确 p 值（样本）：{fmt_num(summary['mcnemar_exact_p'])}",
+        f"- McNemar/sign-test 精确 p 值（题目多数投票）：{fmt_num(summary.get('mcnemar_exact_p_task_majority'))}",
         "",
-        "## By domain",
+        "## 按领域统计",
         "",
-        "| domain | n | baseline | candidate | delta | regressions | improvements |",
+        "| 领域 | 样本 | 基线 | 候选 | 差异 | 回归 | 改进 |",
         "|---|---:|---:|---:|---:|---:|---:|",
     ]
     for item in summary["by_domain"]:
@@ -521,14 +617,14 @@ def markdown_compare(summary: dict[str, Any]) -> str:
             f"{item['regressions']} | {item['improvements']} |"
         )
     if summary.get("stable_regression_items"):
-        lines += ["", "## Stable task regression cases", "", "| task | domain | skill | baseline correct/repeats | candidate correct/repeats |", "|---|---|---|---:|---:|"]
+        lines += ["", "## 稳定回归题目", "", "| 题目 | 领域 | 技能 | 基线正确/有效 | 候选正确/有效 |", "|---|---|---|---:|---:|"]
         for r in summary["stable_regression_items"][:100]:
             lines.append(
                 f"| {esc(r['task_id'])} | {esc(r['domain'])} | {esc(r['skill'])} | "
                 f"{r['baseline_correct_repeats']}/{r['baseline_valid_repeats']} | {r['candidate_correct_repeats']}/{r['candidate_valid_repeats']} |"
             )
     if summary["regression_items"]:
-        lines += ["", "## Case-level regression cases", "", "| task | repeat | domain | skill | baseline | candidate | expected | failure mode |", "|---|---:|---|---|---|---|---|---|"]
+        lines += ["", "## 样本级回归", "", "| 题目 | 轮次 | 领域 | 技能 | 基线回答 | 候选回答 | 期望 | 失败模式 |", "|---|---:|---|---|---|---|---|---|"]
         for r in summary["regression_items"][:100]:
             lines.append(
                 f"| {esc(r['task_id'])} | {r['repeat']} | {esc(r['domain'])} | {esc(r['skill'])} | "
@@ -540,7 +636,7 @@ def markdown_compare(summary: dict[str, Any]) -> str:
 def fmt_delta(value: float | None) -> str:
     if value is None:
         return "-"
-    return f"{value * 100:+.1f} pp"
+    return f"{value * 100:+.1f} 个百分点"
 
 
 def load_results(path: str | Path) -> list[dict[str, Any]]:

@@ -27,14 +27,14 @@ class TargetSpec:
 TARGET_SPECS: dict[str, TargetSpec] = {
     "chatgpt": TargetSpec("chatgpt", ("openai", "openai-skill", "chatgpt-skill"), "strong", "ChatGPT Skill zip with SKILL.md and agents/openai.yaml.", "native_skill", "chatgpt"),
     "claude": TargetSpec("claude", ("claude-code", "anthropic", "claude-cli"), "strong", "Claude / Claude Code package with CLAUDE.md and SKILL.md.", "agent_project", "claude"),
-    "codex": TargetSpec("codex", ("codex-cli",), "strong", "Codex project package with AGENTS.md.", "agent_project", "codex"),
+    "codex": TargetSpec("codex", ("codex-cli",), "strong", "Codex package with SKILL.md and AGENTS.md compatibility instructions.", "agent_project", "codex"),
     "gemini": TargetSpec("gemini", ("gemini-cli",), "strong", "Gemini CLI package with GEMINI.md.", "agent_project", "gemini"),
     "opencode": TargetSpec("opencode", ("opencode-cli",), "strong", "OpenCode package with AGENTS.md and OPENCODE.md.", "agent_project", "opencode"),
     "hermes": TargetSpec("hermes", ("hermes-api",), "strong", "Hermes / OpenAI-compatible package.", "api_agent", "hermes"),
     "windsurf": TargetSpec("windsurf", ("devin-desktop", "devin"), "strong", "Windsurf/Devin Desktop workspace rules package.", "ai_ide", "windsurf"),
-    "cline": TargetSpec("cline", ("cline-bot",), "strong", "Cline rules package with .clinerules and AGENTS.md.", "ai_ide", "cline"),
+    "cline": TargetSpec("cline", ("cline-bot",), "strong", "Cline package with SKILL.md plus legacy .clinerules and AGENTS.md.", "ai_ide", "cline"),
     "github-copilot": TargetSpec("github-copilot", ("copilot", "github"), "strong", "GitHub Copilot repository instructions package.", "ai_ide", "github-copilot"),
-    "cursor": TargetSpec("cursor", ("cursor-ide",), "best_effort", "Cursor rules package with .cursor/rules and AGENTS.md fallback.", "ai_ide", "cursor"),
+    "cursor": TargetSpec("cursor", ("cursor-ide",), "best_effort", "Cursor package with SKILL.md plus legacy .cursor/rules and AGENTS.md fallback.", "ai_ide", "cursor"),
     "roo-code": TargetSpec("roo-code", ("roo", "roocode"), "best_effort", "Roo Code rules package with AGENTS.md fallback.", "ai_ide", "roo-code"),
     "kilo-code": TargetSpec("kilo-code", ("kilo", "kilocode"), "best_effort", "Kilo Code rules package with AGENTS.md fallback.", "ai_ide", "kilo-code"),
     "zed": TargetSpec("zed", ("zcode", "zed-code"), "best_effort", "Zed/Zcode package with AGENTS.md fallback.", "ai_ide", "zed"),
@@ -264,7 +264,7 @@ def _write_target_files(skill_dir: Path, spec: TargetSpec) -> None:
     (skill_dir / "references").mkdir(parents=True, exist_ok=True)
     (skill_dir / "assets").mkdir(parents=True, exist_ok=True)
     _write_mre_scripts(skill_dir)
-    _write_install_scripts(skill_dir)
+    _write_install_scripts(skill_dir, default_mode="rules" if spec.family == "web" else "skill")
     _write_references(skill_dir)
     template = spec.template
     if template == "chatgpt":
@@ -272,6 +272,7 @@ def _write_target_files(skill_dir: Path, spec: TargetSpec) -> None:
     elif template == "claude":
         _write_claude_skill(skill_dir)
     elif template == "codex":
+        _write_text(skill_dir / "SKILL.md", CODEX_SKILL_MD)
         _write_agent_manifest(skill_dir, "AGENTS.md", "Codex", spec)
     elif template == "gemini":
         _write_agent_manifest(skill_dir, "GEMINI.md", "Gemini CLI", spec)
@@ -298,6 +299,8 @@ def _write_target_files(skill_dir: Path, spec: TargetSpec) -> None:
         _write_api_preset(skill_dir, spec, runner=template)
     else:
         _write_agent_manifest(skill_dir, "AGENTS.md", "Generic agent", spec)
+    if spec.family != "web" and not (skill_dir / "SKILL.md").exists():
+        _write_text(skill_dir / "SKILL.md", CHATGPT_SKILL_MD)
 
 
 def _write_json(path: Path, obj: dict[str, Any]) -> None:
@@ -395,13 +398,15 @@ python "%~dp0mre.py" %*
     )
 
 
-def _write_install_scripts(skill_dir: Path) -> None:
-    install_py = '#!/usr/bin/env python3\nfrom __future__ import annotations\n\nimport json\nfrom pathlib import Path\nimport sys\n\nROOT = Path(__file__).resolve().parent\nPROJECT = ROOT / "assets" / "eval_project"\nsys.path.insert(0, str(PROJECT))\n\nfrom model_regression_eval.installer import install_skillpack_directory\n\n\ndef main(argv=None):\n    import argparse\n    parser = argparse.ArgumentParser(description="Install this Model Regression Eval skillpack into a project.")\n    parser.add_argument("--target", default="auto")\n    parser.add_argument("--project-root", default=".")\n    parser.add_argument("--dry-run", action="store_true")\n    parser.add_argument("--overwrite", action="store_true")\n    parser.add_argument("--no-backup", action="store_true")\n    args = parser.parse_args(argv)\n    manifest = install_skillpack_directory(\n        source_skillpack=ROOT,\n        project_root=args.project_root,\n        target=args.target,\n        dry_run=args.dry_run,\n        overwrite=args.overwrite,\n        backup=not args.no_backup,\n    )\n    print(json.dumps(manifest, ensure_ascii=False, indent=2))\n    return 0\n\n\nif __name__ == "__main__":\n    raise SystemExit(main())\n'
+def _write_install_scripts(skill_dir: Path, *, default_mode: str = "skill") -> None:
+    if default_mode not in {"rules", "skill"}:
+        raise ValueError(f"unsupported generated installer default mode: {default_mode}")
+    install_py = f'#!/usr/bin/env python3\nfrom __future__ import annotations\n\nimport json\nfrom pathlib import Path\nimport sys\n\nROOT = Path(__file__).resolve().parent\nPROJECT = ROOT / "assets" / "eval_project"\nsys.path.insert(0, str(PROJECT))\n\nfrom model_regression_eval.installer import install_skill_directory, install_skillpack_directory\n\n\ndef main(argv=None):\n    import argparse\n    parser = argparse.ArgumentParser(description="Install this Model Regression Eval skillpack.")\n    parser.add_argument("--mode", choices=["rules", "skill"], default="{default_mode}", help="skill installs one canonical global SKILL.md copy and optionally links it into an IDE skills root; rules writes project instruction files for legacy agents.")\n    parser.add_argument("--target", default="auto")\n    parser.add_argument("--project-root", default=".")\n    parser.add_argument("--global-skills-dir", default=None)\n    parser.add_argument("--skills-dir", default=None)\n    parser.add_argument("--skill-dir-preset", default=None)\n    parser.add_argument("--dry-run", action="store_true")\n    parser.add_argument("--overwrite", action="store_true")\n    parser.add_argument("--no-backup", action="store_true")\n    args = parser.parse_args(argv)\n    if args.mode == "skill":\n        manifest = install_skill_directory(\n            source_skillpack=ROOT,\n            global_skills_dir=args.global_skills_dir,\n            skills_dir=args.skills_dir,\n            skill_dir_preset=args.skill_dir_preset,\n            project_root=args.project_root,\n            target=args.target,\n            dry_run=args.dry_run,\n            overwrite=args.overwrite,\n            backup=not args.no_backup,\n        )\n    else:\n        manifest = install_skillpack_directory(\n            source_skillpack=ROOT,\n            project_root=args.project_root,\n            target=args.target,\n            dry_run=args.dry_run,\n            overwrite=args.overwrite,\n            backup=not args.no_backup,\n        )\n    print(json.dumps(manifest, ensure_ascii=False, indent=2))\n    return 0\n\n\nif __name__ == "__main__":\n    raise SystemExit(main())\n'
     _write_text(skill_dir / "install.py", install_py)
     (skill_dir / "install.py").chmod((skill_dir / "install.py").stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
     _write_text(skill_dir / "install.sh", '#!/usr/bin/env sh\nset -eu\nif command -v python3 >/dev/null 2>&1; then PY=python3; elif command -v python >/dev/null 2>&1; then PY=python; else echo "Python 3 is required" >&2; exit 1; fi\nDIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)\nexec "$PY" "$DIR/install.py" "$@"\n')
     (skill_dir / "install.sh").chmod((skill_dir / "install.sh").stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
-    _write_text(skill_dir / "install.ps1", 'param(\n  [string]$Target = "auto",\n  [string]$ProjectRoot = ".",\n  [switch]$DryRun,\n  [switch]$Overwrite\n)\n$ErrorActionPreference = "Stop"\n$Dir = Split-Path -Parent $MyInvocation.MyCommand.Path\n$Args = @("$Dir\\install.py", "--target", $Target, "--project-root", $ProjectRoot)\nif ($DryRun) { $Args += "--dry-run" }\nif ($Overwrite) { $Args += "--overwrite" }\npython @Args\n')
+    _write_text(skill_dir / "install.ps1", f'param(\n  [ValidateSet("rules", "skill")]\n  [string]$Mode = "{default_mode}",\n  [string]$Target = "auto",\n  [string]$ProjectRoot = ".",\n  [string]$GlobalSkillsDir = "",\n  [string]$SkillsDir = "",\n  [string]$SkillDirPreset = "",\n  [switch]$DryRun,\n  [switch]$Overwrite\n)\n$ErrorActionPreference = "Stop"\n$Dir = Split-Path -Parent $MyInvocation.MyCommand.Path\n$Args = @("$Dir\\install.py", "--mode", $Mode, "--target", $Target, "--project-root", $ProjectRoot)\nif ($SkillDirPreset) {{ $Args += @("--skill-dir-preset", $SkillDirPreset) }}\nif ($GlobalSkillsDir) {{ $Args += @("--global-skills-dir", $GlobalSkillsDir) }}\nif ($SkillsDir) {{ $Args += @("--skills-dir", $SkillsDir) }}\nif ($DryRun) {{ $Args += "--dry-run" }}\nif ($Overwrite) {{ $Args += "--overwrite" }}\npython @Args\n')
 
 
 def _write_references(skill_dir: Path) -> None:
@@ -450,7 +455,7 @@ def _manifest_md(agent_name: str, spec: TargetSpec, *, compact: bool = False) ->
 
 {note}
 
-This package contains a self-contained model/agent capability regression evaluator with the full 300-task Chinese task set.
+This package contains a self-contained model/agent capability evaluator with the full 300-task Chinese baseline set. The default skill flow is conversation-based: the current agent or same-model subagents answer a no-answer-leak session packet, then the local evaluator grades the returned answer set.
 
 ## Entry point
 
@@ -458,7 +463,6 @@ Run commands through the bundled wrapper:
 
 ```bash
 ./scripts/mre budget --tasks tasks/core.zh.jsonl --profile smoke --depth quick
-./scripts/mre run --runner mock --tasks tasks/core.zh.jsonl --profile smoke --depth quick --out-dir runs --run-id selfcheck
 ```
 
 On Windows:
@@ -474,11 +478,11 @@ The wrapper runs from `assets/eval_project`, so the default task and schema path
 
 ## Recommended workflow
 
-1. Estimate cost: `./scripts/mre budget --tasks tasks/core.zh.jsonl --profile smoke --depth quick`.
-2. Self-check: `./scripts/mre run --runner mock --tasks tasks/core.zh.jsonl --profile smoke --depth quick`.
-3. Test the target agent with `smoke quick`.
-4. If results look abnormal, run `standard confirm`.
-5. For final confirmation, run `full confirm` and compare against a baseline.
+1. Create a no-answer-leak session packet: `./scripts/mre export-session --tasks tasks/core.zh.jsonl --profile smoke --depth quick --out runs/session_packet.json`.
+2. Give the packet assignments to the current conversation agent. If the host supports subagents, create same-provider and same-model subagents and assign one repeat/session to each.
+3. Save the returned answer set and import it: `./scripts/mre import-session --tasks tasks/core.zh.jsonl --answers runs/session_answers.json --out-dir runs --run-id session_agent`.
+4. If results look abnormal, repeat with `standard confirm` using independent subagents or fresh sessions.
+5. Compare candidate and baseline result files.
 
 ## Profiles and depths
 
@@ -488,10 +492,19 @@ The wrapper runs from `assets/eval_project`, so the default task and schema path
 - `--depth quick`: 1 repeat per task.
 - `--depth confirm`: 3 repeats per task.
 - `--depth deep`: 5 repeats per task.
+- `--difficulty hard` and `--tier frontier`: select the first hard/frontier capability-ceiling subset.
 
 Use `--max-requests` and `--max-observed-tokens` to control cost.
 
-## Common runners
+## Installation self-check only
+
+`mock` returns each task's expected answer. Use it only to verify package installation, task loading, and deterministic grading. Do not use `mock` results as model or agent capability evidence.
+
+```bash
+./scripts/mre run --runner mock --tasks tasks/core.zh.jsonl --profile smoke --depth quick --out-dir runs --run-id selfcheck
+```
+
+## Advanced automation runners
 
 ```bash
 ./scripts/mre run --runner codex --tasks tasks/core.zh.jsonl --profile smoke --depth quick --model gpt-5.5
@@ -503,13 +516,13 @@ Use `--max-requests` and `--max-observed-tokens` to control cost.
 ./scripts/mre run --runner subprocess --tasks tasks/core.zh.jsonl --profile smoke --agent-command 'my-agent --prompt-file {{prompt_file}} --schema {{schema_path}}'
 ```
 
-## Manual/web agents
+## Session/manual agents
 
-For agents that cannot be called directly, export prompts and import results:
+For conversation agents, export a session packet and import the answer set:
 
 ```bash
-./scripts/mre export-prompts --tasks tasks/core.zh.jsonl --profile smoke --out runs/manual_prompts.jsonl
-./scripts/mre import-results --tasks tasks/core.zh.jsonl --outputs runs/manual_outputs.jsonl --out-dir runs --run-id manual_agent
+./scripts/mre export-session --tasks tasks/core.zh.jsonl --profile smoke --out runs/session_packet.json
+./scripts/mre import-session --tasks tasks/core.zh.jsonl --answers runs/session_answers.json --out-dir runs --run-id manual_agent
 ```
 
 ## Interpreting results
@@ -599,7 +612,7 @@ def _write_api_preset(skill_dir: Path, spec: TargetSpec, *, runner: str) -> None
 SUPPORT_NOTES = {
     "strong": "This target has a dedicated package shape with a known project instruction file or native skill entrypoint.",
     "best_effort": "This target uses the best-known project-rule files plus AGENTS.md fallback. Verify that your local IDE version loads these files.",
-    "manual_web": "This target is for web products that usually cannot install local executable skills. Use export-prompts/import-results.",
+    "manual_web": "This target is for web products that usually cannot install local executable skills. Use session packets and import-session in a local evaluator environment.",
     "api_preset": "This target is an API runner preset. Configure endpoint and API key through environment variables or CLI flags.",
     "generic": "This target is the fallback compatibility package. It uses README.md and AGENTS.md plus scripts/mre.",
 }
@@ -607,19 +620,19 @@ SUPPORT_NOTES = {
 
 CHATGPT_SKILL_MD = """---
 name: model-regression-eval
-description: evaluate model and agent capability regressions using a fixed 300-task chinese task set, deterministic grading, profile/depth sampling, token budgeting, majority voting, and baseline/candidate comparison. use when asked to test whether an llm, coding agent, cli agent, api model, web agent, ai ide, chatgpt, claude, codex, gemini, windsurf, cursor, cline, github copilot, opencode, hermes, qwen, glm, or generic agent has degraded; export prompts; import manual results; or generate regression reports.
+description: evaluate model and agent capability through conversation session packets, same-model subagent repeats, deterministic grading, profile/depth sampling, confidence tracking, and baseline/candidate comparison. use when asked to test whether an llm, coding agent, cli agent, api model, web agent, ai ide, chatgpt, claude, codex, gemini, windsurf, cursor, cline, github copilot, opencode, hermes, qwen, glm, or generic agent has degraded; export session packets; import answer sets; or generate evaluation reports.
 ---
 
 # Model Regression Eval
 
-Use this skill to run standardized model or agent capability regression checks. Prefer the bundled scripts over ad hoc evaluation logic.
+Use this skill to run standardized model or agent capability checks inside the current conversation. The default path is not to call another model through a CLI runner; instead, give a no-answer-leak session packet to the current agent or same-model subagents, then import the returned answer set for local grading.
 
 ## Workflow
 
-1. Estimate cost with `scripts/mre budget` before calling a paid or rate-limited agent.
-2. Run `smoke quick` first.
-3. If abnormal, run `standard confirm`.
-4. For final confirmation, run `full confirm`, not `full deep` unless explicitly requested.
+1. Generate a no-answer-leak packet with `scripts/mre export-session`.
+2. Ask the current agent to answer the packet. If same-provider and same-model subagents are available, assign repeats to separate subagents.
+3. Import the answer set with `scripts/mre import-session`.
+4. If abnormal, repeat with `standard confirm` using independent subagents or fresh sessions.
 5. Compare against a baseline with `scripts/mre compare`.
 6. Review regression cases before concluding that a model or agent degraded.
 
@@ -636,10 +649,17 @@ The script runs from the bundled project directory at `assets/eval_project`, so 
 
 ```bash
 scripts/mre budget --tasks tasks/core.zh.jsonl --profile smoke --depth quick
+scripts/mre export-session --tasks tasks/core.zh.jsonl --profile smoke --depth quick --out runs/session_packet.json
+scripts/mre import-session --tasks tasks/core.zh.jsonl --answers runs/session_answers.json --out-dir runs --run-id session_agent
+scripts/mre compare --baseline runs/A/results.jsonl --candidate runs/B/results.jsonl --out-md runs/compare.md
+```
+
+## Installation self-check only
+
+`mock` returns each task's expected answer. Use it only to verify package installation, task loading, and deterministic grading. Do not use `mock` results as model or agent capability evidence.
+
+```bash
 scripts/mre run --runner mock --tasks tasks/core.zh.jsonl --profile smoke --depth quick --out-dir runs --run-id selfcheck
-scripts/mre run --runner http --agent-url http://localhost:8000/eval --tasks tasks/core.zh.jsonl --profile smoke --depth quick
-scripts/mre export-prompts --tasks tasks/core.zh.jsonl --profile smoke --out runs/manual_prompts.jsonl
-scripts/mre import-results --tasks tasks/core.zh.jsonl --outputs runs/manual_outputs.jsonl --out-dir runs --run-id manual_agent
 ```
 
 ## Target selection
@@ -653,20 +673,89 @@ Consult `references/interpretation.md` before stating conclusions. Do not call a
 
 CLAUDE_SKILL_MD = CHATGPT_SKILL_MD
 
+CODEX_SKILL_MD = """---
+name: model-regression-eval
+description: evaluate model and agent capability through conversation session packets, same-model subagent repeats, deterministic grading, profile/depth sampling, confidence tracking, and baseline/candidate comparison. use when asked to test whether an llm, coding agent, codex cli, claude cli, gemini cli, api model, or web agent has degraded; export session packets; import answer sets; or generate evaluation reports. WHEN: "regression eval", "model regression", "capability regression", "eval model", "benchmark model", "compare baseline candidate", "budget estimate", "model degraded"
+---
+
+# Model Regression Eval
+
+Use this skill to run standardized model or agent capability checks inside the current conversation. The default path is not to call another model through a CLI runner; instead, give a no-answer-leak session packet to the current agent or same-provider same-model subagents, then import the returned answer set for local grading.
+
+## Workflow
+
+1. Generate a no-answer-leak packet with `scripts/mre export-session`.
+2. Ask the current agent to answer the packet. If native subagents are available, each subagent must use the same provider and model as the main session.
+3. Import the answer set with `scripts/mre import-session`.
+4. If abnormal, repeat with `standard confirm` using independent subagents or fresh sessions.
+5. Compare against a baseline with `scripts/mre compare`.
+6. Review regression cases before concluding that a model or agent degraded.
+
+## Entrypoint
+
+Use `scripts/mre` on POSIX systems, `scripts/mre.bat` on Windows, or `python scripts/mre.py` everywhere.
+
+The script runs from the bundled project directory at `assets/eval_project`, so use these paths:
+
+- task file: `tasks/core.zh.jsonl`
+- schema file: `schemas/final_answer.schema.json`
+
+## Common commands
+
+```bash
+scripts/mre budget --tasks tasks/core.zh.jsonl --profile smoke --depth quick
+scripts/mre export-session --tasks tasks/core.zh.jsonl --profile smoke --depth quick --out runs/session_packet.json
+scripts/mre import-session --tasks tasks/core.zh.jsonl --answers runs/session_answers.json --out-dir runs --run-id session_agent
+scripts/mre compare --baseline runs/A/results.jsonl --candidate runs/B/results.jsonl --out-md runs/compare.md
+```
+
+## Installation self-check only
+
+`mock` returns each task's expected answer. Use it only to verify package installation, task loading, and deterministic grading. Do not use `mock` results as model or agent capability evidence.
+
+```bash
+scripts/mre run --runner mock --tasks tasks/core.zh.jsonl --profile smoke --depth quick --out-dir runs --run-id selfcheck
+```
+
+## Profiles and depths
+
+- `--profile smoke`: 40 tasks
+- `--profile standard`: 100 tasks
+- `--profile full`: all 300 tasks
+- `--depth quick`: 1 repeat per task
+- `--depth confirm`: 3 repeats per task
+- `--depth deep`: 5 repeats per task
+- `--difficulty hard` / `--tier frontier`: first hard/frontier subset
+
+Use `--max-requests` and `--max-observed-tokens` to control cost.
+
+## Interpretation
+
+Consult `references/interpretation.md` before stating conclusions. Do not call a model degraded based on a single run, a single task, or raw reasoning-token changes alone.
+"""
+
 WORKFLOW_MD = """# Workflow
 
 ## Standard path
 
-1. Run `budget` for the selected profile/depth.
-2. Run `mock smoke quick` once after unpacking the package.
-3. Run the target agent with `smoke quick`.
-4. Escalate to `standard confirm` only if the smoke run exposes a plausible issue.
+1. Export a no-answer-leak conversation packet with `export-session`.
+2. Ask the current session agent to answer the packet. If the host supports native subagents, create same-provider and same-model subagents and assign independent repeats/sessions.
+3. Import the returned answer set with `import-session`.
+4. Escalate to `standard confirm` only if the smoke packet exposes a plausible issue.
 5. Use `full confirm` for final confirmation.
 6. Compare candidate and baseline result files.
 
+## Subagent and session rules
+
+- Subagents must use the same provider and model as the main session.
+- If subagents are unavailable, run only one current-session pass. For repeated validation, use fresh sessions manually or an IDE feature that can create independent same-model sessions.
+- Record `execution_mode` and `agent_instance` in the answer set so reports do not mix current-session, subagent, manual-new-session, and runner evidence.
+
 ## Cost controls
 
-Use `--max-requests` to cap calls and `--max-observed-tokens` to stop when observed input+output usage crosses a threshold.
+Use `--profile`, `--depth`, `--difficulty`, `--tier`, `--answer-mode`, and `--max-requests` to control packet size. Token usage for conversation agents is usually not observable unless the host records it.
+
+The bundled core task set keeps legacy tasks as `basic/baseline/deterministic` by default and marks the first reviewed complex subset as `hard/frontier/deterministic`.
 
 ## Evidence standard
 
@@ -674,6 +763,8 @@ Treat `smoke quick` as a screening run. Treat `standard confirm` or `full confir
 """
 
 RUNNERS_MD = """# Runners
+
+Direct runners are advanced automation adapters. They are useful for CI, API gateways, or controlled harnesses, but they are not the default skill path for CLI/IDE/Web conversation agents.
 
 ## Direct runners
 
@@ -695,7 +786,12 @@ Use these when the agent has no exact adapter:
 
 - `http`: call an HTTP endpoint that accepts `{prompt, model, schema}`.
 - `subprocess`: call any local command with placeholders `{prompt_file}`, `{schema_path}`, `{final_out_path}`, `{model}`.
-- `export-prompts` / `import-results`: use for web-only or manual agents.
+- `export-session` / `import-session`: default conversation packet flow for current-session, subagent, and manual-new-session evaluation.
+- `export-prompts` / `import-results`: legacy single-task prompt flow. `export-prompts` does not include expected answers unless `--include-answers` is explicitly used.
+
+## Self-check runner
+
+- `mock`: returns each task's expected answer. Use only for installation and grading self-checks, not capability evaluation.
 
 ## API aliases
 
@@ -718,6 +814,7 @@ Avoid these mistakes:
 
 - concluding degradation from one failed task
 - comparing runs with different task sets without checking warnings
+- treating `mock` results as model or agent capability evidence
 - treating reasoning tokens as a direct intelligence metric
 - ignoring task ambiguity or grader mistakes
 """
@@ -763,36 +860,37 @@ WEB_MANUAL_MD = """# Web Manual Workflow
 
 Use this workflow for web-only products that cannot install or execute local skills.
 
-1. Run `./scripts/mre export-prompts --tasks tasks/core.zh.jsonl --profile smoke --out runs/manual_prompts.jsonl`.
-2. Copy prompts into the web product or upload the prompt file if supported.
-3. Require each answer to be JSON with `answer`, `confidence`, and `reasoning_summary`.
-4. Save results as JSONL matching `templates/manual_outputs.template.jsonl`.
-5. Run `./scripts/mre import-results --tasks tasks/core.zh.jsonl --outputs runs/manual_outputs.jsonl --out-dir runs --run-id web_agent`.
+1. In a local evaluator environment, run `./scripts/mre export-session --tasks tasks/core.zh.jsonl --profile smoke --out runs/session_packet.json`.
+2. Copy the packet assignments into the web product or upload the packet if supported.
+3. Require a JSON answer set with an `answers` array. Each item must include `task_id`, `repeat`, `answer`, `confidence`, and `reasoning_summary`.
+4. Save results as JSON or JSONL matching `templates/manual_outputs.template.jsonl`.
+5. In the local evaluator environment, run `./scripts/mre import-session --tasks tasks/core.zh.jsonl --answers runs/session_answers.json --out-dir runs --run-id web_agent`.
 6. Compare against baseline with `./scripts/mre compare`.
 """
 
 WEB_AGENT_INSTRUCTIONS_MD = """# Web Agent Instructions for {target}
 
-You are being evaluated with Model Regression Eval. For each prompt, answer without external tools unless the prompt explicitly allows tools.
+You are being evaluated with Model Regression Eval. Answer each session packet assignment without external tools unless the prompt explicitly allows tools.
 
-Return only JSON:
+Return only JSON with an `answers` array:
 
 ```json
-{{"answer":"...","confidence":0.0,"reasoning_summary":"..."}}
+{{"answers":[{{"task_id":"...","repeat":1,"agent_instance":"web-session-1","execution_mode":"manual_new_session","answer":"...","confidence":0.0,"reasoning_summary":"..."}}]}}
 ```
 
 Rules:
 
+- Copy `task_id` and `repeat` exactly from each assignment.
 - Put the final answer in `answer` only.
 - Use a number between 0 and 1 for `confidence`.
 - Keep `reasoning_summary` to one concise sentence.
 - Do not include markdown outside the JSON object.
 """
 
-WEB_SYSTEM_PROMPT_MD = """Answer each evaluation prompt as a standalone task. Return only a JSON object with keys `answer`, `confidence`, and `reasoning_summary`. Do not use external tools unless explicitly allowed by the prompt.
+WEB_SYSTEM_PROMPT_MD = """Answer each evaluation assignment as a standalone task. Return only a JSON object with an `answers` array. Each item must include `task_id`, `repeat`, `answer`, `confidence`, and `reasoning_summary`. Do not use external tools unless explicitly allowed by the prompt.
 """
 
-MANUAL_OUTPUT_TEMPLATE_JSONL = '''{"task_id":"example_task_id","repeat":1,"answer":"example answer","confidence":0.9,"reasoning_summary":"brief rationale"}
+MANUAL_OUTPUT_TEMPLATE_JSONL = '''{"answers":[{"task_id":"example_task_id","repeat":1,"agent_instance":"manual-session-1","execution_mode":"manual_new_session","answer":"example answer","confidence":0.9,"reasoning_summary":"brief rationale"}]}
 '''
 
 API_PRESET_MD = """# API Preset

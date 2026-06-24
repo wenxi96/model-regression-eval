@@ -8,6 +8,20 @@ def test_parse_final_json_fenced():
     assert obj["answer"] == "21"
 
 
+def test_parse_cli_stdout_preserves_top_level_final_answer_json():
+    from model_regression_eval.runner import parse_cli_stdout
+
+    text = '{"answer":"21","confidence":0.9,"reasoning_summary":"x"}'
+    final_text, raw_response, usage, tool_violation = parse_cli_stdout(text, runner_name="subprocess")
+    obj, err = parse_final_json(final_text)
+
+    assert not err
+    assert obj == {"answer": "21", "confidence": 0.9, "reasoning_summary": "x"}
+    assert raw_response == {"answer": "21", "confidence": 0.9, "reasoning_summary": "x"}
+    assert usage.input_tokens is None
+    assert tool_violation is False
+
+
 def test_detect_tool_use():
     events = [{"type":"item.completed", "item":{"type":"command_execution"}}]
     assert detect_tool_use(events)

@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 import subprocess
 import sys
 import zipfile
@@ -87,7 +88,7 @@ def test_mre_python_wrapper_preserves_caller_output_directory(tmp_path):
     )
     assert proc.returncode == 0, proc.stderr
     assert out_md.exists()
-    assert "Tasks: 40" in out_md.read_text(encoding="utf-8")
+    assert "题目数：40" in out_md.read_text(encoding="utf-8")
 
 
 def test_build_ai_ide_contains_multiple_rule_files(tmp_path):
@@ -140,3 +141,83 @@ def test_build_unknown_target_falls_back_to_generic(tmp_path):
     code = main(["skill", "build", "--target", "some-new-agent", "--out-dir", str(out)])
     assert code == 0
     assert (out / "model-regression-eval-generic.zip").exists()
+
+
+def test_non_web_skillpacks_include_top_level_skill_md(tmp_path):
+    for target in ("generic", "codex", "cursor", "cline"):
+        built = build_skillpacks(target=target, out_dir=tmp_path / target)
+        with zipfile.ZipFile(built[0].package_path) as zf:
+            names = set(zf.namelist())
+            prefix = f"model-regression-eval-{target}/"
+            assert prefix + "SKILL.md" in names
+            assert "name: model-regression-eval" in zf.read(prefix + "SKILL.md").decode("utf-8")
+
+
+def test_generated_skill_md_marks_mock_as_self_check_only(tmp_path):
+    built = build_skillpacks(target="codex", out_dir=tmp_path)
+    with zipfile.ZipFile(built[0].package_path) as zf:
+        skill_md = zf.read("model-regression-eval-codex/SKILL.md").decode("utf-8")
+    common = _markdown_section(skill_md, "## Common commands")
+    self_check = _markdown_section(skill_md, "## Installation self-check only")
+    assert "export-session" in common
+    assert "import-session" in common
+    assert "--runner codex" not in common
+    assert "--runner claude_cli" not in common
+    assert "--runner gemini_cli" not in common
+    assert "--runner http" not in common
+    assert "--runner mock" not in common
+    assert "--runner mock" in self_check
+    assert "--tier frontier" in skill_md
+    assert "--difficulty hard" in skill_md
+    assert "capability evidence" in self_check
+
+
+def test_generated_web_manual_uses_session_packet_workflow(tmp_path):
+    built = build_skillpacks(target="qwen-web", out_dir=tmp_path)
+    with zipfile.ZipFile(built[0].package_path) as zf:
+        workflow = zf.read("model-regression-eval-qwen-web/references/web-manual.md").decode("utf-8")
+        instructions = zf.read("model-regression-eval-qwen-web/WEB_AGENT_INSTRUCTIONS.md").decode("utf-8")
+    assert "export-session" in workflow
+    assert "import-session" in workflow
+    assert "answers" in instructions
+
+
+def test_generated_install_scripts_default_to_skill_mode(tmp_path):
+    built = build_skillpacks(target="generic", out_dir=tmp_path)
+    with zipfile.ZipFile(built[0].package_path) as zf:
+        prefix = "model-regression-eval-generic/"
+        install_py = zf.read(prefix + "install.py").decode("utf-8")
+        install_ps1 = zf.read(prefix + "install.ps1").decode("utf-8")
+        assert 'default="skill"' in install_py
+        assert '[string]$Mode = "skill"' in install_ps1
+
+
+def test_generated_web_install_scripts_default_to_rules_mode_and_dry_run(tmp_path):
+    built = build_skillpacks(target="qwen-web", out_dir=tmp_path / "build", package_format="directory")
+    package = built[0].package_path
+    install_py = (package / "install.py").read_text(encoding="utf-8")
+    install_ps1 = (package / "install.ps1").read_text(encoding="utf-8")
+
+    assert 'default="rules"' in install_py
+    assert '[string]$Mode = "rules"' in install_ps1
+    assert not (package / "SKILL.md").exists()
+
+    project = tmp_path / "project"
+    proc = subprocess.run(
+        [sys.executable, str(package / "install.py"), "--dry-run", "--project-root", str(project)],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+    assert proc.returncode == 0, proc.stderr
+    manifest = json.loads(proc.stdout)
+    assert manifest["resolved_target"] == "qwen-web"
+    assert manifest["dry_run"] is True
+    assert any(action["path"].startswith(".model-regression-eval/web-manual/") for action in manifest["actions"])
+
+
+def _markdown_section(text: str, heading: str) -> str:
+    start = text.index(heading)
+    end = text.find("\n## ", start + len(heading))
+    return text[start:] if end == -1 else text[start:end]

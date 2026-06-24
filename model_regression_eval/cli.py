@@ -3,13 +3,15 @@ from __future__ import annotations
 import argparse
 from datetime import datetime
 import json
+import math
 from pathlib import Path
 import random
 import sys
 from typing import Any
 
+from . import __version__
 from .budget import markdown_budget, summarize_budget
-from .graders import grade
+from .graders import GradeResult, grade
 from .profiles import DEPTH_CHOICES, PROFILE_CHOICES, apply_profile, fit_request_budget, resolve_profile_and_repeats, stratified_select
 from .reporting import (
     compare_rows,
@@ -20,7 +22,15 @@ from .reporting import (
     write_json,
 )
 from .skillpacks import CANONICAL_TARGETS, TARGET_SPECS, build_skillpacks, normalize_skill_target
-from .installer import detect_system, detect_target, install_from_any_source, uninstall_project, write_bootstrap_script
+from .installer import (
+    detect_system,
+    detect_target,
+    install_from_any_source,
+    install_skill_from_any_source,
+    skill_dir_presets,
+    uninstall_project,
+    write_bootstrap_script,
+)
 from .runner import (
     RUNNER_CHOICES,
     canonical_runner_name,
@@ -35,7 +45,7 @@ from .runner import (
     run_openai_compatible,
     run_subprocess_runner,
 )
-from .tasks import EvalTask, append_jsonl, load_tasks, write_jsonl
+from .tasks import ANSWER_MODE_CHOICES, DIFFICULTY_CHOICES, TIER_CHOICES, EvalTask, append_jsonl, load_tasks, write_jsonl
 
 
 EFFORTS = ["minimal", "low", "medium", "high", "xhigh"]
@@ -73,6 +83,9 @@ def main(argv: list[str] | None = None) -> int:
     run_p.add_argument("--agent-header", action="append", default=[], help="Extra HTTP header for --runner http, formatted as 'Name: Value'. Repeatable.")
     run_p.add_argument("--limit", type=int, default=None, help="Only run first N tasks after profile/filtering. Prefer --profile or --max-requests for balanced sampling.")
     run_p.add_argument("--task-id", action="append", default=None, help="Run only selected task id. Repeatable.")
+    run_p.add_argument("--difficulty", action="append", choices=sorted(DIFFICULTY_CHOICES), default=None, help="Filter by metadata.difficulty. Repeatable.")
+    run_p.add_argument("--tier", action="append", choices=sorted(TIER_CHOICES), default=None, help="Filter by metadata.tier. Repeatable.")
+    run_p.add_argument("--answer-mode", action="append", choices=sorted(ANSWER_MODE_CHOICES), default=None, help="Filter by metadata.answer_mode. Repeatable.")
     run_p.add_argument("--shuffle", action="store_true", help="Shuffle task order with --seed after selection.")
     run_p.add_argument("--seed", type=int, default=0, help="Stratified selection and shuffle seed.")
     run_p.add_argument("--include-quarantined", action="store_true", help="Include tasks marked status=quarantined.")
@@ -86,6 +99,9 @@ def main(argv: list[str] | None = None) -> int:
     budget_p.add_argument("--max-requests", type=int, default=None, help="Apply a hard request budget to the estimate.")
     budget_p.add_argument("--limit", type=int, default=None, help="Only estimate first N tasks after filtering/profile.")
     budget_p.add_argument("--task-id", action="append", default=None, help="Estimate selected task id. Repeatable.")
+    budget_p.add_argument("--difficulty", action="append", choices=sorted(DIFFICULTY_CHOICES), default=None, help="Filter by metadata.difficulty. Repeatable.")
+    budget_p.add_argument("--tier", action="append", choices=sorted(TIER_CHOICES), default=None, help="Filter by metadata.tier. Repeatable.")
+    budget_p.add_argument("--answer-mode", action="append", choices=sorted(ANSWER_MODE_CHOICES), default=None, help="Filter by metadata.answer_mode. Repeatable.")
     budget_p.add_argument("--seed", type=int, default=0, help="Stratified selection seed.")
     budget_p.add_argument("--include-quarantined", action="store_true", help="Include tasks marked status=quarantined.")
     budget_p.add_argument("--out-md", default=None, help="Optional markdown output path.")
@@ -93,7 +109,7 @@ def main(argv: list[str] | None = None) -> int:
     budget_p.set_defaults(func=cmd_budget)
 
 
-    exp_p = sub.add_parser("export-prompts", help="Export selected prompts for manual or external agent execution.")
+    exp_p = sub.add_parser("export-prompts", help="Export selected single-task prompts. Prefer export-session for capability evaluation.")
     exp_p.add_argument("--tasks", required=True, help="Path to JSONL task file.")
     exp_p.add_argument("--profile", choices=PROFILE_CHOICES, default=None, help="Coverage profile.")
     exp_p.add_argument("--depth", choices=DEPTH_CHOICES, default=None, help="Repeat-depth shortcut.")
@@ -101,10 +117,33 @@ def main(argv: list[str] | None = None) -> int:
     exp_p.add_argument("--max-requests", type=int, default=None, help="Apply a hard request budget.")
     exp_p.add_argument("--limit", type=int, default=None, help="Only export first N tasks after profile/filtering.")
     exp_p.add_argument("--task-id", action="append", default=None, help="Export selected task id. Repeatable.")
+    exp_p.add_argument("--difficulty", action="append", choices=sorted(DIFFICULTY_CHOICES), default=None, help="Filter by metadata.difficulty. Repeatable.")
+    exp_p.add_argument("--tier", action="append", choices=sorted(TIER_CHOICES), default=None, help="Filter by metadata.tier. Repeatable.")
+    exp_p.add_argument("--answer-mode", action="append", choices=sorted(ANSWER_MODE_CHOICES), default=None, help="Filter by metadata.answer_mode. Repeatable.")
     exp_p.add_argument("--seed", type=int, default=0, help="Stratified selection seed.")
     exp_p.add_argument("--include-quarantined", action="store_true", help="Include tasks marked status=quarantined.")
-    exp_p.add_argument("--out", required=True, help="Output JSONL containing task_id, repeat, prompt, expected, grader.")
+    exp_p.add_argument("--include-answers", action="store_true", help="Include expected answers and graders. Off by default to avoid leaking answers to the evaluated agent.")
+    exp_p.add_argument("--out", required=True, help="Output JSONL containing task_id, repeat, prompt, and metadata. Expected answers are included only with --include-answers.")
     exp_p.set_defaults(func=cmd_export_prompts)
+
+    sess_p = sub.add_parser("export-session", help="Export a no-answer-leak conversation packet for the current agent or same-model subagents.")
+    sess_p.add_argument("--tasks", required=True, help="Path to JSONL task file.")
+    sess_p.add_argument("--profile", choices=PROFILE_CHOICES, default=None, help="Coverage profile.")
+    sess_p.add_argument("--depth", choices=DEPTH_CHOICES, default=None, help="Repeat-depth shortcut.")
+    sess_p.add_argument("--repeats", type=int, default=None, help="Repeats to export. Overrides --depth.")
+    sess_p.add_argument("--max-requests", type=int, default=None, help="Apply a hard request budget.")
+    sess_p.add_argument("--limit", type=int, default=None, help="Only export first N tasks after profile/filtering.")
+    sess_p.add_argument("--task-id", action="append", default=None, help="Export selected task id. Repeatable.")
+    sess_p.add_argument("--difficulty", action="append", choices=sorted(DIFFICULTY_CHOICES), default=None, help="Filter by metadata.difficulty. Repeatable.")
+    sess_p.add_argument("--tier", action="append", choices=sorted(TIER_CHOICES), default=None, help="Filter by metadata.tier. Repeatable.")
+    sess_p.add_argument("--answer-mode", action="append", choices=sorted(ANSWER_MODE_CHOICES), default=None, help="Filter by metadata.answer_mode. Repeatable.")
+    sess_p.add_argument("--seed", type=int, default=0, help="Stratified selection seed.")
+    sess_p.add_argument("--include-quarantined", action="store_true", help="Include tasks marked status=quarantined.")
+    sess_p.add_argument("--agent-label", default="current_agent", help="Human-readable label for the evaluated agent/session.")
+    sess_p.add_argument("--execution-mode", default="current_session", choices=["current_session", "subagent", "manual_new_session", "runner"], help="Intended answer collection mode recorded in the packet.")
+    sess_p.add_argument("--include-answers", action="store_true", help="Include expected answers for debugging only. Do not use with evaluated agents.")
+    sess_p.add_argument("--out", required=True, help="Output JSON session packet.")
+    sess_p.set_defaults(func=cmd_export_session)
 
     imp_p = sub.add_parser("import-results", help="Import manual/external agent outputs and grade them.")
     imp_p.add_argument("--tasks", required=True, help="Path to JSONL task file.")
@@ -116,6 +155,19 @@ def main(argv: list[str] | None = None) -> int:
     imp_p.add_argument("--effort", default="manual", help="Effort label stored in results.")
     imp_p.add_argument("--include-quarantined", action="store_true", help="Include tasks marked status=quarantined.")
     imp_p.set_defaults(func=cmd_import_results)
+
+    imp_sess_p = sub.add_parser("import-session", help="Import a conversation answer set from the current agent or same-model subagents and grade it.")
+    imp_sess_p.add_argument("--tasks", required=True, help="Path to JSONL task file.")
+    imp_sess_p.add_argument("--answers", required=True, help="JSON, JSON array, or JSONL answer file. A JSON object may contain an answers array.")
+    imp_sess_p.add_argument("--out-dir", default="runs", help="Directory where the imported run folder is written.")
+    imp_sess_p.add_argument("--run-id", required=True, help="Run id for imported results.")
+    imp_sess_p.add_argument("--runner-name", default="session_agent", help="Runner label stored in results.")
+    imp_sess_p.add_argument("--model", default=None, help="Model/agent label stored in results.")
+    imp_sess_p.add_argument("--effort", default="session", help="Effort label stored in results.")
+    imp_sess_p.add_argument("--execution-mode", default="current_session", choices=["current_session", "subagent", "manual_new_session", "runner"], help="Default execution mode when answers omit execution_mode.")
+    imp_sess_p.add_argument("--agent-instance", default=None, help="Default agent instance/session label when answers omit agent_instance.")
+    imp_sess_p.add_argument("--include-quarantined", action="store_true", help="Include tasks marked status=quarantined.")
+    imp_sess_p.set_defaults(func=cmd_import_session)
 
     sum_p = sub.add_parser("summarize", help="Summarize one results.jsonl file.")
     sum_p.add_argument("--results", required=True, help="Path to results.jsonl.")
@@ -139,6 +191,11 @@ def main(argv: list[str] | None = None) -> int:
     skill_list_p = skill_sub.add_parser("list-targets", help="List supported skillpack build targets.")
     skill_list_p.set_defaults(func=cmd_skill_list_targets)
 
+    skill_dirs_p = skill_sub.add_parser("list-skill-dirs", help="List known skills directory presets for true SKILL.md installation.")
+    skill_dirs_p.add_argument("--project-root", default=".", help="Project root used to expand project-local presets.")
+    skill_dirs_p.add_argument("--json", action="store_true", help="Print JSON only.")
+    skill_dirs_p.set_defaults(func=cmd_skill_list_dirs)
+
     skill_build_p = skill_sub.add_parser("build", help="Build a portable skillpack package. This only produces packages; it does not install them.")
     skill_build_p.add_argument("--target", required=True, help="Target package such as chatgpt, claude, codex, gemini, windsurf, cursor, cline, copilot, opencode, web-manual, qwen-web, glm-web, ai-ide, generic, or all. Unknown values fall back to generic.")
     skill_build_p.add_argument("--out-dir", default="dist/skillpacks", help="Directory where packages are written.")
@@ -151,17 +208,38 @@ def main(argv: list[str] | None = None) -> int:
     skill_detect_p.add_argument("--json", action="store_true", help="Print JSON only.")
     skill_detect_p.set_defaults(func=cmd_skill_detect)
 
-    skill_install_p = skill_sub.add_parser("install", help="Install this evaluator into a project with safe managed blocks and a local package copy.")
-    skill_install_p.add_argument("--target", default="auto", help="Target to install, or auto for detection. Unknown targets fall back to generic.")
-    skill_install_p.add_argument("--project-root", default=".", help="Project directory to install into. Default: current directory.")
-    skill_install_p.add_argument("--from-url", default=None, help="Install from a source zip URL or JSON install manifest URL.")
-    skill_install_p.add_argument("--from-git", default=None, help="Install from a git repository URL.")
-    skill_install_p.add_argument("--ref", default=None, help="Git branch/tag/ref for --from-git.")
-    skill_install_p.add_argument("--sha256", default=None, help="Expected SHA256 for --from-url.")
-    skill_install_p.add_argument("--dry-run", action="store_true", help="Preview actions without writing files.")
-    skill_install_p.add_argument("--overwrite", action="store_true", help="Refresh existing managed files/package and replace non-managed dedicated rule files.")
-    skill_install_p.add_argument("--no-backup", action="store_true", help="Do not create backups before updating files.")
-    skill_install_p.set_defaults(func=cmd_skill_install)
+    def add_rules_install_args(p: argparse.ArgumentParser) -> None:
+        p.add_argument("--target", default="auto", help="Target to install, or auto for detection. Unknown targets fall back to generic.")
+        p.add_argument("--project-root", default=".", help="Project directory to install into. Default: current directory.")
+        p.add_argument("--from-url", default=None, help="Install from a source zip URL or JSON install manifest URL.")
+        p.add_argument("--from-git", default=None, help="Install from a git repository URL.")
+        p.add_argument("--ref", default=None, help="Git branch/tag/ref for --from-git.")
+        p.add_argument("--sha256", default=None, help="Expected SHA256 for --from-url.")
+        p.add_argument("--dry-run", action="store_true", help="Preview actions without writing files.")
+        p.add_argument("--overwrite", action="store_true", help="Refresh existing managed files/package and replace non-managed dedicated rule files.")
+        p.add_argument("--no-backup", action="store_true", help="Do not create backups before updating files.")
+        p.set_defaults(func=cmd_skill_install)
+
+    skill_install_p = skill_sub.add_parser("install", help="Compatibility alias for install-rules: writes project instruction/rule files and a local package copy.")
+    add_rules_install_args(skill_install_p)
+
+    skill_install_rules_p = skill_sub.add_parser("install-rules", help="Install project instruction/rule files and a local evaluator package copy.")
+    add_rules_install_args(skill_install_rules_p)
+
+    skill_install_skill_p = skill_sub.add_parser("install-skill", help="Install a true SKILL.md directory globally, and optionally symlink it into an IDE/project skills directory.")
+    skill_install_skill_p.add_argument("--target", default="auto", help="Skillpack target to build/install. Default: auto.")
+    skill_install_skill_p.add_argument("--project-root", default=".", help="Project root used for project-local skill-dir presets. Default: current directory.")
+    skill_install_skill_p.add_argument("--global-skills-dir", default=None, help="Canonical global skills root. Default: ~/.agents/skills.")
+    skill_install_skill_p.add_argument("--skills-dir", action="append", default=None, help="Optional IDE/project skills root to receive a symlink to the global skill. Repeat to link multiple roots.")
+    skill_install_skill_p.add_argument("--skill-dir-preset", action="append", default=None, help="Known skills-dir preset to link into, such as agents, project-agents, cursor-project, cline-global, claude-global. Repeat to link multiple presets. Default: target-specific when known, otherwise agents.")
+    skill_install_skill_p.add_argument("--from-url", default=None, help="Install from a source zip URL or JSON install manifest URL.")
+    skill_install_skill_p.add_argument("--from-git", default=None, help="Install from a git repository URL.")
+    skill_install_skill_p.add_argument("--ref", default=None, help="Git branch/tag/ref for --from-git.")
+    skill_install_skill_p.add_argument("--sha256", default=None, help="Expected SHA256 for --from-url.")
+    skill_install_skill_p.add_argument("--dry-run", action="store_true", help="Preview actions without writing files.")
+    skill_install_skill_p.add_argument("--overwrite", action="store_true", help="Update an existing global skill with a mismatched version and replace stale links.")
+    skill_install_skill_p.add_argument("--no-backup", action="store_true", help="Do not create backups before replacing existing files/directories.")
+    skill_install_skill_p.set_defaults(func=cmd_skill_install_skill)
 
     skill_uninstall_p = skill_sub.add_parser("uninstall", help="Remove files/blocks installed by skill install using the install manifest.")
     skill_uninstall_p.add_argument("--project-root", default=".", help="Project directory to uninstall from. Default: current directory.")
@@ -184,6 +262,12 @@ def select_tasks_for_args(args: argparse.Namespace) -> tuple[list[EvalTask], int
     if args.task_id:
         wanted = set(args.task_id)
         tasks = [t for t in tasks if t.id in wanted]
+    tasks = filter_tasks_by_metadata(
+        tasks,
+        difficulty=getattr(args, "difficulty", None),
+        tier=getattr(args, "tier", None),
+        answer_mode=getattr(args, "answer_mode", None),
+    )
 
     resolved_profile, repeats, depth_meta = resolve_profile_and_repeats(
         getattr(args, "profile", None),
@@ -195,6 +279,26 @@ def select_tasks_for_args(args: argparse.Namespace) -> tuple[list[EvalTask], int
         tasks = tasks[: args.limit]
     tasks = fit_request_budget(tasks, repeats, getattr(args, "max_requests", None), seed=getattr(args, "seed", 0))
     return tasks, repeats, depth_meta
+
+
+def filter_tasks_by_metadata(
+    tasks: list[EvalTask],
+    *,
+    difficulty: list[str] | None = None,
+    tier: list[str] | None = None,
+    answer_mode: list[str] | None = None,
+) -> list[EvalTask]:
+    selected = list(tasks)
+    if difficulty:
+        wanted = set(difficulty)
+        selected = [task for task in selected if task.difficulty in wanted]
+    if tier:
+        wanted = set(tier)
+        selected = [task for task in selected if task.tier in wanted]
+    if answer_mode:
+        wanted = set(answer_mode)
+        selected = [task for task in selected if task.answer_mode in wanted]
+    return selected
 
 
 def cmd_run(args: argparse.Namespace) -> int:
@@ -281,8 +385,8 @@ def cmd_run(args: argparse.Namespace) -> int:
                     final_path=final_path,
                 )
                 answer = rr.final_json.get("answer") if rr.final_json else None
-                gr = grade(task, answer, tool_violation=rr.tool_violation, format_error=rr.format_error)
-                valid = rr.returncode == 0
+                gr, grade_supported = grade_for_task(task, answer, tool_violation=bool(rr.tool_violation), format_error=rr.format_error)
+                valid = rr.returncode == 0 and grade_supported
                 row = result_row(task, repeat, args, rr, gr, valid, raw_path, final_path)
             except subprocess_like_error() as exc:  # type: ignore[misc]
                 row = exception_row(task, repeat, args, exc, raw_path, final_path)
@@ -301,6 +405,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     summary["stopped_for_token_budget"] = stopped_for_token_budget
     write_json(out_dir / "summary.json", summary)
     (out_dir / "report.md").write_text(markdown_summary("Model Capability Regression Run", summary, rows), encoding="utf-8")
+    print_summary_warnings(summary)
     print(f"\nWrote: {results_path}")
     print(f"Wrote: {out_dir / 'report.md'}")
     print(f"Wrote: {out_dir / 'budget.md'}")
@@ -498,6 +603,20 @@ def mock_answer(task: EvalTask) -> str:
     return str(task.expected)
 
 
+def grade_for_task(task: EvalTask, answer: Any, *, tool_violation: bool = False, format_error: bool = False) -> tuple[GradeResult, bool]:
+    if task.answer_mode != "deterministic":
+        return (
+            GradeResult(
+                False,
+                0.0,
+                "unsupported_answer_mode",
+                f"answer_mode={task.answer_mode!r} requires a rubric or judge and is not included in deterministic accuracy",
+            ),
+            False,
+        )
+    return grade(task, answer, tool_violation=tool_violation, format_error=format_error), True
+
+
 def result_row(task: EvalTask, repeat: int, args: argparse.Namespace, rr: Any, gr: Any, valid: bool, raw_path: Path, final_path: Path) -> dict[str, Any]:
     usage = rr.usage
     return {
@@ -506,6 +625,9 @@ def result_row(task: EvalTask, repeat: int, args: argparse.Namespace, rr: Any, g
         "repeat": repeat,
         "domain": task.domain,
         "skill": task.skill,
+        "difficulty": task.difficulty,
+        "tier": task.tier,
+        "answer_mode": task.answer_mode,
         "grader": task.grader,
         "weight": task.weight,
         "allow_tools": task.allow_tools,
@@ -519,6 +641,9 @@ def result_row(task: EvalTask, repeat: int, args: argparse.Namespace, rr: Any, g
         "resolved_depth": getattr(args, "resolved_depth", None),
         "requested_runner": getattr(args, "requested_runner", args.runner),
         "runner": args.runner,
+        "execution_mode": getattr(args, "execution_mode", "runner"),
+        "agent_instance": getattr(args, "agent_instance", None),
+        "session_id": getattr(args, "session_id", None),
         "answer": rr.final_json.get("answer") if rr.final_json else None,
         "confidence": rr.final_json.get("confidence") if rr.final_json else None,
         "reasoning_summary": rr.final_json.get("reasoning_summary") if rr.final_json else None,
@@ -551,6 +676,9 @@ def exception_row(task: EvalTask, repeat: int, args: argparse.Namespace, exc: Ba
         "repeat": repeat,
         "domain": task.domain,
         "skill": task.skill,
+        "difficulty": task.difficulty,
+        "tier": task.tier,
+        "answer_mode": task.answer_mode,
         "grader": task.grader,
         "weight": task.weight,
         "allow_tools": task.allow_tools,
@@ -564,6 +692,9 @@ def exception_row(task: EvalTask, repeat: int, args: argparse.Namespace, exc: Ba
         "resolved_depth": getattr(args, "resolved_depth", None),
         "requested_runner": getattr(args, "requested_runner", args.runner),
         "runner": args.runner,
+        "execution_mode": getattr(args, "execution_mode", "runner"),
+        "agent_instance": getattr(args, "agent_instance", None),
+        "session_id": getattr(args, "session_id", None),
         "answer": None,
         "confidence": None,
         "reasoning_summary": None,
@@ -595,25 +726,35 @@ def cmd_export_prompts(args: argparse.Namespace) -> int:
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
         return 1
+    if not tasks:
+        print("No tasks to export after filters/profile/budget.", file=sys.stderr)
+        return 1
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     rows = []
     for repeat in range(1, repeats + 1):
         for task in tasks:
-            rows.append({
+            row = {
                 "task_id": task.id,
                 "repeat": repeat,
                 "domain": task.domain,
                 "skill": task.skill,
-                "grader": task.grader,
-                "expected": task.expected,
+                "difficulty": task.difficulty,
+                "tier": task.tier,
+                "answer_mode": task.answer_mode,
+                "allow_tools": task.allow_tools,
                 "prompt": build_prompt(task),
-            })
+            }
+            if args.include_answers:
+                row["grader"] = task.grader
+                row["expected"] = task.expected
+            rows.append(row)
     write_jsonl(out, rows)
     manifest = {
         "tasks": len(tasks),
         "repeats": repeats,
         "requests": len(rows),
+        "include_answers": bool(args.include_answers),
         "requested_profile": depth_meta["requested_profile"],
         "resolved_profile": depth_meta["resolved_profile"],
         "requested_depth": depth_meta["requested_depth"],
@@ -622,6 +763,78 @@ def cmd_export_prompts(args: argparse.Namespace) -> int:
     write_json(out.with_suffix(out.suffix + ".manifest.json"), manifest)
     print(f"Wrote: {out}")
     print(f"Wrote: {out.with_suffix(out.suffix + '.manifest.json')}")
+    return 0
+
+
+def cmd_export_session(args: argparse.Namespace) -> int:
+    try:
+        tasks, repeats, depth_meta = select_tasks_for_args(args)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    if not tasks:
+        print("No tasks to export after filters/profile/budget.", file=sys.stderr)
+        return 1
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    assignments = []
+    for repeat in range(1, repeats + 1):
+        for task in tasks:
+            item = {
+                "task_id": task.id,
+                "repeat": repeat,
+                "domain": task.domain,
+                "skill": task.skill,
+                "difficulty": task.difficulty,
+                "tier": task.tier,
+                "answer_mode": task.answer_mode,
+                "allow_tools": task.allow_tools,
+                "prompt": task.prompt,
+            }
+            if args.include_answers:
+                item["grader"] = task.grader
+                item["expected"] = task.expected
+            assignments.append(item)
+    packet = {
+        "packet_type": "model_regression_eval.session_packet",
+        "packet_version": 1,
+        "created_at": datetime.now().isoformat(timespec="seconds"),
+        "tool_version": __version__,
+        "agent_label": args.agent_label,
+        "execution_mode": args.execution_mode,
+        "tasks_path": str(args.tasks),
+        "include_answers": bool(args.include_answers),
+        "requested_profile": depth_meta["requested_profile"],
+        "resolved_profile": depth_meta["resolved_profile"],
+        "requested_depth": depth_meta["requested_depth"],
+        "resolved_depth": depth_meta["resolved_depth"],
+        "repeat_source": depth_meta["repeat_source"],
+        "task_count": len(tasks),
+        "repeats": repeats,
+        "assignment_count": len(assignments),
+        "instructions": [
+            "Answer each assignment independently without external tools unless the task explicitly allows tools.",
+            "Return one JSON object with an answers array, or a JSONL file with one answer object per line.",
+            "Each answer object must include task_id, repeat, answer, confidence, and reasoning_summary.",
+            "Each task_id and repeat pair must appear exactly once in one imported run.",
+            "Use the same provider and model for subagents as the main session. If subagents are unavailable, answer only one current-session pass and record execution_mode=current_session.",
+            "Do not include markdown fences or prose outside the JSON/JSONL answer payload.",
+        ],
+        "answer_schema": {
+            "task_id": "string copied from assignment.task_id",
+            "repeat": "integer copied from assignment.repeat",
+            "agent_instance": "string identifying current session or subagent",
+            "execution_mode": "current_session | subagent | manual_new_session | runner",
+            "answer": "final answer string only",
+            "confidence": "number from 0 to 1",
+            "reasoning_summary": "one concise sentence with key rationale, not a detailed chain of thought",
+        },
+        "assignments": assignments,
+    }
+    write_json(out, packet)
+    print(f"Wrote: {out}")
+    if args.include_answers:
+        print("Warning: packet includes expected answers. Do not give it to an evaluated agent.", file=sys.stderr)
     return 0
 
 
@@ -640,7 +853,9 @@ def cmd_import_results(args: argparse.Namespace) -> int:
         if task_id not in tasks:
             raise RuntimeError(f"Line {line_no}: unknown task_id {task_id!r}")
         task = tasks[task_id]
-        repeat = int(obj.get("repeat") or 1)
+        repeat = int(obj.get("repeat", 1))
+        if repeat <= 0:
+            raise RuntimeError(f"Line {line_no}: repeat must be positive")
         final_obj = obj.get("final_json")
         if final_obj is None and "answer" in obj:
             final_obj = {
@@ -675,7 +890,7 @@ def cmd_import_results(args: argparse.Namespace) -> int:
             runner_name=args.runner_name,
         )
         answer = rr.final_json.get("answer") if rr.final_json else None
-        gr = grade(task, answer, tool_violation=bool(rr.tool_violation), format_error=rr.format_error)
+        gr, grade_supported = grade_for_task(task, answer, tool_violation=bool(rr.tool_violation), format_error=rr.format_error)
         ns = argparse.Namespace(
             run_id=args.run_id,
             model=args.model,
@@ -686,15 +901,163 @@ def cmd_import_results(args: argparse.Namespace) -> int:
             resolved_depth=None,
             runner=args.runner_name,
             requested_runner=args.runner_name,
+            execution_mode=obj.get("execution_mode", "manual_import"),
+            agent_instance=obj.get("agent_instance"),
+            session_id=obj.get("session_id"),
         )
-        rows.append(result_row(task, repeat, ns, rr, gr, True, raw_path, final_path))
+        rows.append(result_row(task, repeat, ns, rr, gr, grade_supported, raw_path, final_path))
     write_jsonl(out_dir / "results.jsonl", rows)
     summary = summarize_rows(rows)
     write_json(out_dir / "summary.json", summary)
     (out_dir / "report.md").write_text(markdown_summary("Imported Manual/External Agent Run", summary, rows), encoding="utf-8")
+    print_summary_warnings(summary)
     print(f"Wrote: {out_dir / 'results.jsonl'}")
     print(f"Wrote: {out_dir / 'report.md'}")
     return 0
+
+
+def cmd_import_session(args: argparse.Namespace) -> int:
+    tasks = {task.id: task for task in load_tasks(args.tasks, include_quarantined=args.include_quarantined)}
+    answers = load_answer_objects(args.answers)
+    if not answers:
+        print("No answers to import.", file=sys.stderr)
+        return 1
+    out_dir = Path(args.out_dir) / args.run_id
+    raw_dir = out_dir / "raw"
+    final_dir = out_dir / "final"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    rows: list[dict[str, Any]] = []
+    seen: set[tuple[str, int]] = set()
+    from .runner import RunnerResult, Usage, parse_final_json
+
+    for index, obj in enumerate(answers, start=1):
+        task_id = obj.get("task_id")
+        if not isinstance(task_id, str) or not task_id:
+            raise RuntimeError(f"Answer {index}: task_id is required")
+        if task_id not in tasks:
+            raise RuntimeError(f"Answer {index}: unknown task_id {task_id!r}")
+        task = tasks[task_id]
+        repeat = int(obj.get("repeat", 1))
+        if repeat <= 0:
+            raise RuntimeError(f"Answer {index}: repeat must be positive")
+        execution_mode = str(obj.get("execution_mode") or args.execution_mode)
+        if execution_mode not in {"current_session", "subagent", "manual_new_session", "runner"}:
+            raise RuntimeError(f"Answer {index}: unsupported execution_mode {execution_mode!r}")
+        agent_instance = str(obj.get("agent_instance") or args.agent_instance or execution_mode)
+        key = (task_id, repeat)
+        if key in seen:
+            raise RuntimeError(f"Answer {index}: duplicate task_id/repeat {key!r}")
+        seen.add(key)
+
+        final_text = obj.get("final_text")
+        final_obj = obj.get("final_json")
+        if final_obj is None and "answer" in obj:
+            if "confidence" not in obj:
+                raise RuntimeError(f"Answer {index}: confidence is required for session answers")
+            confidence = float(obj.get("confidence"))
+            if not math.isfinite(confidence) or confidence < 0.0 or confidence > 1.0:
+                raise RuntimeError(f"Answer {index}: confidence must be between 0 and 1")
+            if "reasoning_summary" not in obj:
+                raise RuntimeError(f"Answer {index}: reasoning_summary is required for session answers")
+            final_obj = {
+                "answer": str(obj.get("answer")),
+                "confidence": confidence,
+                "reasoning_summary": str(obj.get("reasoning_summary")),
+            }
+        if final_text is None:
+            if final_obj is None:
+                raise RuntimeError(f"Answer {index}: answer or final_json is required")
+            final_text = json.dumps(final_obj, ensure_ascii=False)
+        parsed, format_error = parse_final_json(str(final_text))
+        raw_path = raw_dir / f"{safe_name(task.id)}__r{repeat}__{safe_name(agent_instance)}.json"
+        final_path = final_dir / f"{safe_name(task.id)}__r{repeat}__{safe_name(agent_instance)}.json"
+        raw_path.parent.mkdir(parents=True, exist_ok=True)
+        final_path.parent.mkdir(parents=True, exist_ok=True)
+        raw_path.write_text(json.dumps(obj, ensure_ascii=False, indent=2), encoding="utf-8")
+        final_path.write_text(str(final_text), encoding="utf-8")
+        rr = RunnerResult(
+            final_text=str(final_text),
+            final_json=parsed,
+            format_error=format_error,
+            raw_events=[],
+            usage=Usage(
+                input_tokens=obj.get("input_tokens"),
+                output_tokens=obj.get("output_tokens"),
+                reasoning_output_tokens=obj.get("reasoning_output_tokens"),
+            ),
+            tool_violation=obj.get("tool_violation"),
+            latency_s=float(obj.get("latency_s") or 0.0),
+            returncode=0,
+            stderr="",
+            command=["session_import"],
+            runner_name=args.runner_name,
+        )
+        answer = rr.final_json.get("answer") if rr.final_json else None
+        gr, grade_supported = grade_for_task(task, answer, tool_violation=bool(rr.tool_violation), format_error=rr.format_error)
+        ns = argparse.Namespace(
+            run_id=args.run_id,
+            model=args.model,
+            effort=args.effort,
+            profile=None,
+            resolved_profile="session_import",
+            depth=None,
+            resolved_depth=None,
+            runner=args.runner_name,
+            requested_runner=args.runner_name,
+            execution_mode=execution_mode,
+            agent_instance=agent_instance,
+            session_id=obj.get("session_id"),
+        )
+        rows.append(result_row(task, repeat, ns, rr, gr, grade_supported, raw_path, final_path))
+
+    write_jsonl(out_dir / "results.jsonl", rows)
+    summary = summarize_rows(rows)
+    write_json(out_dir / "summary.json", summary)
+    write_json(
+        out_dir / "manifest.json",
+        {
+            "run_id": args.run_id,
+            "created_at": datetime.now().isoformat(timespec="seconds"),
+            "tasks_path": str(Path(args.tasks).resolve()),
+            "answers_path": str(Path(args.answers).resolve()),
+            "runner": args.runner_name,
+            "model": args.model,
+            "effort": args.effort,
+            "default_execution_mode": args.execution_mode,
+            "answer_count": len(rows),
+        },
+    )
+    (out_dir / "report.md").write_text(markdown_summary("Imported Session Agent Run", summary, rows), encoding="utf-8")
+    print_summary_warnings(summary)
+    print(f"Wrote: {out_dir / 'results.jsonl'}")
+    print(f"Wrote: {out_dir / 'report.md'}")
+    return 0
+
+
+def load_answer_objects(path: str | Path) -> list[dict[str, Any]]:
+    text = Path(path).read_text(encoding="utf-8").strip()
+    if not text:
+        return []
+    if text[0] in "[{":
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError:
+            data = None
+        if data is None:
+            items = [json.loads(line) for line in text.splitlines() if line.strip()]
+        elif isinstance(data, list):
+            items = data
+        elif isinstance(data, dict) and isinstance(data.get("answers"), list):
+            items = data["answers"]
+        elif isinstance(data, dict) and data.get("task_id"):
+            items = [data]
+        else:
+            raise ValueError("JSON answer file must be an array, a single answer object, or an object with an answers array")
+    else:
+        items = [json.loads(line) for line in text.splitlines() if line.strip()]
+    if not all(isinstance(item, dict) for item in items):
+        raise ValueError("All session answers must be JSON objects")
+    return list(items)
 
 
 def cmd_budget(args: argparse.Namespace) -> int:
@@ -726,6 +1089,7 @@ def cmd_summarize(args: argparse.Namespace) -> int:
         Path(args.out_md).parent.mkdir(parents=True, exist_ok=True)
         Path(args.out_md).write_text(md, encoding="utf-8")
     else:
+        print_summary_warnings(summary)
         print(md)
     return 0
 
@@ -757,6 +1121,19 @@ def cmd_skill_list_targets(args: argparse.Namespace) -> int:
         print(f"  - {target:16s} [{spec.support}] {spec.description}")
     print("  - all")
     print("Unknown target names are treated as generic.")
+    return 0
+
+
+def cmd_skill_list_dirs(args: argparse.Namespace) -> int:
+    data = {"skill_dir_presets": skill_dir_presets(Path(args.project_root))}
+    if args.json:
+        print(json.dumps(data, ensure_ascii=False, indent=2))
+        return 0
+    print("Known skills directory presets:")
+    for item in data["skill_dir_presets"]:
+        print(f"  - {item['name']:16s} [{item['scope']}/{item['support']}] {item['path']}")
+        print(f"    {item['description']}")
+    print("Use --global-skills-dir for the canonical copy and --skills-dir or --skill-dir-preset for an IDE/project symlink.")
     return 0
 
 
@@ -823,6 +1200,36 @@ def cmd_skill_install(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_skill_install_skill(args: argparse.Namespace) -> int:
+    try:
+        manifest = install_skill_from_any_source(
+            from_url=args.from_url,
+            from_git=args.from_git,
+            ref=args.ref,
+            sha256=args.sha256,
+            target=args.target,
+            global_skills_dir=Path(args.global_skills_dir) if args.global_skills_dir else None,
+            skills_dir=[Path(item) for item in args.skills_dir] if args.skills_dir else None,
+            skill_dir_preset=args.skill_dir_preset,
+            project_root=Path(args.project_root),
+            dry_run=args.dry_run,
+            overwrite=args.overwrite,
+            backup=not args.no_backup,
+        )
+    except Exception as exc:
+        print(f"install-skill failed: {exc}", file=sys.stderr)
+        return 1
+    print(json.dumps(manifest, ensure_ascii=False, indent=2))
+    if args.dry_run:
+        print("Dry-run only; no files were written.")
+    else:
+        print(f"Installed global skill: {manifest['global_skill_path']}")
+        for item in manifest.get("skill_links") or []:
+            if item["skill_path"] != manifest["global_skill_path"]:
+                print(f"Linked skill into: {item['skill_path']}")
+    return 0
+
+
 def cmd_skill_uninstall(args: argparse.Namespace) -> int:
     try:
         manifest = uninstall_project(Path(args.project_root), dry_run=args.dry_run)
@@ -857,6 +1264,11 @@ def default_run_id(model: str | None, effort: str) -> str:
 
 def safe_name(s: str) -> str:
     return "".join(ch if ch.isalnum() or ch in {"-", "_", "."} else "_" for ch in str(s))
+
+
+def print_summary_warnings(summary: dict[str, Any]) -> None:
+    for warning in summary.get("warnings") or []:
+        print(f"警告：{warning}", flush=True)
 
 
 if __name__ == "__main__":

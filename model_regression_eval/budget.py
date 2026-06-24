@@ -100,21 +100,21 @@ def _group_budget(token_by_task: list[tuple[EvalTask, int]], attr: str) -> list[
 
 def markdown_budget(summary: BudgetSummary) -> str:
     data = summary.to_dict()
-    lines = ["# Token Budget Estimate", ""]
+    lines = ["# Token 预算估算", ""]
     lines += [
-        f"- Tasks: {data['tasks']}",
-        f"- Repeats: {data['repeats']}",
-        f"- Requests: {data['requests']}",
-        f"- Estimated prompt tokens / single pass: {data['estimated_prompt_tokens_per_run']}",
-        f"- Estimated prompt tokens including repeats: {data['estimated_prompt_tokens_with_repeats']}",
-        f"- Average prompt tokens / task: {data['average_prompt_tokens']:.1f}",
-        f"- Max prompt tokens / task: {data['max_prompt_tokens']}",
+        f"- 题目数：{data['tasks']}",
+        f"- 重复次数：{data['repeats']}",
+        f"- 请求数：{data['requests']}",
+        f"- 单轮提示词 token 估算：{data['estimated_prompt_tokens_per_run']}",
+        f"- 含重复次数的提示词 token 估算：{data['estimated_prompt_tokens_with_repeats']}",
+        f"- 平均每题提示词 token：{data['average_prompt_tokens']:.1f}",
+        f"- 单题最大提示词 token：{data['max_prompt_tokens']}",
         "",
-        "> This is a tokenizer-free planning estimate. Treat Codex JSONL `turn.completed.usage` as the source of truth after a real run.",
+        "> 这是不依赖 tokenizer 的规划估算。真实运行后，应以 runner 返回的 usage 或 Codex JSONL `turn.completed.usage` 作为准确信息来源。",
         "",
-        "## By domain",
+        "## 按领域统计",
         "",
-        "| domain | tasks | est prompt tokens | avg/task | max/task |",
+        "| 领域 | 题目数 | 提示词 token 估算 | 平均/题 | 最大/题 |",
         "|---|---:|---:|---:|---:|",
     ]
     for item in data["by_domain"]:
@@ -122,7 +122,7 @@ def markdown_budget(summary: BudgetSummary) -> str:
             f"| {item['domain']} | {item['tasks']} | {item['estimated_prompt_tokens']} | "
             f"{item['average_prompt_tokens']:.1f} | {item['max_prompt_tokens']} |"
         )
-    lines += ["", "## By skill", "", "| skill | tasks | est prompt tokens | avg/task | max/task |", "|---|---:|---:|---:|---:|"]
+    lines += ["", "## 按技能统计", "", "| 技能 | 题目数 | 提示词 token 估算 | 平均/题 | 最大/题 |", "|---|---:|---:|---:|---:|"]
     for item in data["by_skill"]:
         lines.append(
             f"| {item['skill']} | {item['tasks']} | {item['estimated_prompt_tokens']} | "
