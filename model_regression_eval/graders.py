@@ -95,18 +95,21 @@ def grade_exact_int(task: EvalTask, answer: Any) -> GradeResult:
 
 def grade_exact_string(task: EvalTask, answer: Any) -> GradeResult:
     pred = normalize_text(answer)
-    expected = normalize_text(task.expected)
-    ok = pred == expected
-    return GradeResult(ok, 1.0 if ok else 0.0, "none" if ok else "wrong_answer", f"pred={pred!r}, expected={expected!r}")
+    accepted = [normalize_text(task.expected)]
+    accepted.extend(normalize_text(item) for item in (task.metadata or {}).get("accept", []))
+    ok = pred in accepted
+    return GradeResult(ok, 1.0 if ok else 0.0, "none" if ok else "wrong_answer", f"pred={pred!r}, expected_any={accepted!r}")
 
 
 def grade_choice(task: EvalTask, answer: Any) -> GradeResult:
     pred = normalize_text(answer)
-    expected = normalize_text(task.expected)
+    expected_values = [normalize_text(task.expected)]
+    expected_values.extend(normalize_text(item) for item in (task.metadata or {}).get("accept", []))
     # Accept "A" or "A.xxx" for choice tasks, but not arbitrary prose containing A.
     pred = pred[:1] if pred else pred
-    ok = pred == expected[:1]
-    return GradeResult(ok, 1.0 if ok else 0.0, "none" if ok else "wrong_answer", f"pred={pred!r}, expected={expected!r}")
+    accepted = [item[:1] for item in expected_values if item]
+    ok = pred in accepted
+    return GradeResult(ok, 1.0 if ok else 0.0, "none" if ok else "wrong_answer", f"pred={pred!r}, expected_any={accepted!r}")
 
 
 def grade_contains_all(task: EvalTask, answer: Any) -> GradeResult:
@@ -115,8 +118,71 @@ def grade_contains_all(task: EvalTask, answer: Any) -> GradeResult:
     if not isinstance(expected_values, list):
         return GradeResult(False, 0.0, "grader_config_error", "contains_all expects a list")
     missing = [x for x in expected_values if normalize_text(x) not in pred]
+    score = _matched_fraction(len(expected_values), len(missing))
     ok = not missing
-    return GradeResult(ok, 1.0 if ok else 0.0, "none" if ok else "missing_expected_parts", f"missing={missing}")
+    return GradeResult(ok, score, "none" if ok else "missing_expected_parts", f"missing={missing}")
+
+
+def grade_contains_ordered(task: EvalTask, answer: Any) -> GradeResult:
+    pred = normalize_text(answer)
+    expected_values = task.expected
+    if not isinstance(expected_values, list):
+        return GradeResult(False, 0.0, "grader_config_error", "contains_ordered expects a list")
+    cursor = 0
+    missing = []
+    matched = 0
+    for raw_item in expected_values:
+        item = normalize_text(raw_item)
+        index = pred.find(item, cursor)
+        if index < 0:
+            missing.append(raw_item)
+            continue
+        matched += 1
+        cursor = index + len(item)
+    ok = not missing
+    return GradeResult(
+        ok,
+        matched / len(expected_values) if expected_values else 0.0,
+        "none" if ok else "missing_ordered_expected_parts",
+        f"missing={missing}",
+    )
+
+
+def normalize_boolean_expression(value: Any) -> str:
+    s = str(value).strip().lower()
+    replacements = {
+        "$": "",
+        "\\": "",
+        " ": "",
+        "\t": "",
+        "\n": "",
+        "（": "(",
+        "）": ")",
+        "·": "",
+        "⋅": "",
+        "*": "",
+        ".": "",
+        "×": "",
+        "cdot": "",
+        "times": "",
+        "left": "",
+        "right": "",
+        "bar": "overline",
+    }
+    for old, new in replacements.items():
+        s = s.replace(old, new)
+    return s
+
+
+def grade_nand_expression(task: EvalTask, answer: Any) -> GradeResult:
+    expected = task.expected
+    if not isinstance(expected, str):
+        return GradeResult(False, 0.0, "grader_config_error", "nand_expression expects expected to be a string")
+    pred = normalize_boolean_expression(answer)
+    accepted = [normalize_boolean_expression(expected)]
+    accepted.extend(normalize_boolean_expression(item) for item in (task.metadata or {}).get("accept", []))
+    ok = pred in accepted
+    return GradeResult(ok, 1.0 if ok else 0.0, "none" if ok else "wrong_expression", f"pred={pred!r}, expected_any={accepted!r}")
 
 
 def parse_numeric_answer(value: Any) -> float | None:
@@ -159,7 +225,18 @@ def grade_unordered_set(task: EvalTask, answer: Any) -> GradeResult:
     pred_items = [normalize_text(x) for x in re.split(r"[,;、]", str(answer)) if normalize_text(x)]
     expected_items = [normalize_text(x) for x in expected_values]
     ok = sorted(pred_items) == sorted(expected_items)
-    return GradeResult(ok, 1.0 if ok else 0.0, "none" if ok else "wrong_answer", f"pred={pred_items}, expected={expected_items}")
+    pred_unique = set(pred_items)
+    expected_unique = set(expected_items)
+    matched = len(pred_unique & expected_unique)
+    denominator = max(len(expected_unique), len(pred_unique))
+    score = matched / denominator if denominator else 0.0
+    return GradeResult(ok, 1.0 if ok else score, "none" if ok else "wrong_answer", f"pred={pred_items}, expected={expected_items}")
+
+
+def _matched_fraction(total: int, missing: int) -> float:
+    if total <= 0:
+        return 0.0
+    return max(0.0, min(1.0, (total - missing) / total))
 
 
 GRADERS = {
@@ -167,6 +244,8 @@ GRADERS = {
     "exact_string": grade_exact_string,
     "choice": grade_choice,
     "contains_all": grade_contains_all,
+    "contains_ordered": grade_contains_ordered,
+    "nand_expression": grade_nand_expression,
     "numeric": grade_numeric,
     "unordered_set": grade_unordered_set,
 }

@@ -7,6 +7,11 @@ from pathlib import Path
 from typing import Any, Iterable
 
 
+DIFFICULTY_CHOICES = {"basic", "medium", "hard", "challenge"}
+TIER_CHOICES = {"baseline", "challenge", "frontier"}
+ANSWER_MODE_CHOICES = {"deterministic", "rubric", "judge"}
+
+
 @dataclass(frozen=True)
 class EvalTask:
     id: str
@@ -23,6 +28,18 @@ class EvalTask:
     @property
     def prompt_hash(self) -> str:
         return "sha256:" + hashlib.sha256(self.prompt.encode("utf-8")).hexdigest()
+
+    @property
+    def difficulty(self) -> str:
+        return str((self.metadata or {}).get("difficulty", "basic"))
+
+    @property
+    def tier(self) -> str:
+        return str((self.metadata or {}).get("tier", "baseline"))
+
+    @property
+    def answer_mode(self) -> str:
+        return str((self.metadata or {}).get("answer_mode", "deterministic"))
 
 
 def load_tasks(path: str | Path, *, include_quarantined: bool = False) -> list[EvalTask]:
@@ -43,6 +60,12 @@ def load_tasks(path: str | Path, *, include_quarantined: bool = False) -> list[E
             missing = [k for k in ["id", "domain", "skill", "prompt", "expected", "grader"] if k not in data]
             if missing:
                 raise ValueError(f"Task {path}:{line_no} missing required fields: {missing}")
+            metadata = dict(data.get("metadata", {}))
+            if "accept" in metadata:
+                accept = metadata["accept"]
+                if not isinstance(accept, list) or not all(isinstance(item, str) for item in accept):
+                    raise ValueError(f"Task {path}:{line_no} metadata.accept must be a list of strings")
+            _validate_metadata(path, line_no, metadata)
             tasks.append(
                 EvalTask(
                     id=str(data["id"]),
@@ -54,7 +77,7 @@ def load_tasks(path: str | Path, *, include_quarantined: bool = False) -> list[E
                     weight=float(data.get("weight", 1.0)),
                     allow_tools=bool(data.get("allow_tools", False)),
                     status=status,
-                    metadata=dict(data.get("metadata", {})),
+                    metadata=metadata,
                 )
             )
     ids = [t.id for t in tasks]
@@ -62,6 +85,22 @@ def load_tasks(path: str | Path, *, include_quarantined: bool = False) -> list[E
     if duplicates:
         raise ValueError(f"Duplicate task ids in {path}: {duplicates}")
     return tasks
+
+
+def _validate_metadata(path: Path, line_no: int, metadata: dict[str, Any]) -> None:
+    difficulty = str(metadata.get("difficulty", "basic"))
+    if difficulty not in DIFFICULTY_CHOICES:
+        raise ValueError(f"Task {path}:{line_no} metadata.difficulty must be one of {sorted(DIFFICULTY_CHOICES)}")
+    tier = str(metadata.get("tier", "baseline"))
+    if tier not in TIER_CHOICES:
+        raise ValueError(f"Task {path}:{line_no} metadata.tier must be one of {sorted(TIER_CHOICES)}")
+    answer_mode = str(metadata.get("answer_mode", "deterministic"))
+    if answer_mode not in ANSWER_MODE_CHOICES:
+        raise ValueError(f"Task {path}:{line_no} metadata.answer_mode must be one of {sorted(ANSWER_MODE_CHOICES)}")
+    if "rubric" in metadata and not isinstance(metadata["rubric"], (str, dict)):
+        raise ValueError(f"Task {path}:{line_no} metadata.rubric must be a string or object")
+    if "variant_group" in metadata and not isinstance(metadata["variant_group"], str):
+        raise ValueError(f"Task {path}:{line_no} metadata.variant_group must be a string")
 
 
 def write_jsonl(path: str | Path, rows: Iterable[dict[str, Any]]) -> None:
