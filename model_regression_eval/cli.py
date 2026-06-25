@@ -600,6 +600,11 @@ def build_prompt(task: EvalTask) -> str:
 def mock_answer(task: EvalTask) -> str:
     if isinstance(task.expected, list):
         return ",".join(str(x) for x in task.expected)
+    if task.grader == "range_interval" and isinstance(task.expected, dict):
+        var = str(task.expected.get("var") or "x")
+        lower_op = "<=" if task.expected.get("lower_closed") else "<"
+        upper_op = "<=" if task.expected.get("upper_closed") else "<"
+        return f"{task.expected.get('lower')}{lower_op}{var}{upper_op}{task.expected.get('upper')}"
     return str(task.expected)
 
 

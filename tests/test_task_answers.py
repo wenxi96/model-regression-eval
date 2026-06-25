@@ -277,3 +277,10 @@ def test_reviewed_complex_answers_match_independent_programmatic_checks():
 
     random_flip = _task_by_id(tasks, "math_random_flip_absorption_001")
     assert str(_random_flip_success_probability()) == random_flip.expected
+
+    piecewise = _task_by_id(tasks, "math_piecewise_function_collinear_slope_001")
+    assert piecewise.grader == "range_interval"
+    assert Fraction(piecewise.expected["lower"]) == Fraction(0)
+    assert Fraction(piecewise.expected["upper"]) == Fraction(2, 9)
+    assert piecewise.expected["lower_closed"] is False
+    assert piecewise.expected["upper_closed"] is False

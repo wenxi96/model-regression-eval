@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from fractions import Fraction
 import math
 import re
 from typing import Any
@@ -99,6 +100,93 @@ def grade_exact_string(task: EvalTask, answer: Any) -> GradeResult:
     accepted.extend(normalize_text(item) for item in (task.metadata or {}).get("accept", []))
     ok = pred in accepted
     return GradeResult(ok, 1.0 if ok else 0.0, "none" if ok else "wrong_answer", f"pred={pred!r}, expected_any={accepted!r}")
+
+
+def compact_math_text(value: Any, *, strip_outer: bool = True) -> str:
+    s = str(value).strip().lower()
+    replacements = {
+        "$": "",
+        " ": "",
+        "\t": "",
+        "\n": "",
+        "，": ",",
+        "（": "(",
+        "）": ")",
+        "−": "-",
+        "\\left": "",
+        "\\right": "",
+    }
+    for old, new in replacements.items():
+        s = s.replace(old, new)
+    return _strip_outer_parens(s) if strip_outer else s
+
+
+def _strip_outer_parens(s: str) -> str:
+    while s.startswith("(") and s.endswith(")"):
+        depth = 0
+        encloses_all = True
+        for index, char in enumerate(s):
+            if char == "(":
+                depth += 1
+            elif char == ")":
+                depth -= 1
+                if depth == 0 and index != len(s) - 1:
+                    encloses_all = False
+                    break
+        if not encloses_all or depth != 0:
+            break
+        s = s[1:-1]
+    return s
+
+
+def _parse_fraction_literal(value: Any, *, allow_decimal: bool = False) -> tuple[Fraction, bool, str] | None:
+    s = compact_math_text(value)
+    latex = re.fullmatch(r"\\(?:frac|dfrac|tfrac)\{([-+]?\d+)\}\{([-+]?\d+)\}", s)
+    if latex:
+        numerator = int(latex.group(1))
+        denominator = int(latex.group(2))
+        return _fraction_with_simplest_flag(numerator, denominator, "fraction")
+    plain = re.fullmatch(r"([-+]?\d+)/([-+]?\d+)", s)
+    if plain:
+        numerator = int(plain.group(1))
+        denominator = int(plain.group(2))
+        return _fraction_with_simplest_flag(numerator, denominator, "fraction")
+    if re.fullmatch(r"[-+]?\d+", s):
+        return Fraction(int(s), 1), True, "integer"
+    if allow_decimal and re.fullmatch(r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)", s):
+        return Fraction(s), True, "decimal"
+    return None
+
+
+def _fraction_with_simplest_flag(numerator: int, denominator: int, kind: str) -> tuple[Fraction, bool, str] | None:
+    if denominator == 0:
+        return None
+    value = Fraction(numerator, denominator)
+    normalized_numerator = numerator
+    normalized_denominator = denominator
+    if normalized_denominator < 0:
+        normalized_numerator *= -1
+        normalized_denominator *= -1
+    simplest = value.numerator == normalized_numerator and value.denominator == normalized_denominator
+    return value, simplest, kind
+
+
+def grade_fraction_string(task: EvalTask, answer: Any) -> GradeResult:
+    meta = task.metadata or {}
+    allow_decimal = bool(meta.get("allow_decimal", False))
+    require_simplest = bool(meta.get("require_simplest", True))
+    expected = _parse_fraction_literal(task.expected, allow_decimal=False)
+    if expected is None:
+        return GradeResult(False, 0.0, "grader_config_error", "fraction_string expects a fraction-like expected value")
+    pred = _parse_fraction_literal(answer, allow_decimal=allow_decimal)
+    if pred is None:
+        return GradeResult(False, 0.0, "parse_error", f"Could not parse fraction answer={answer!r}")
+    pred_value, pred_simplest, pred_kind = pred
+    expected_value = expected[0]
+    if require_simplest and pred_kind == "fraction" and not pred_simplest:
+        return GradeResult(False, 0.0, "non_simplest_fraction", f"pred={pred_value}, expected={expected_value}")
+    ok = pred_value == expected_value
+    return GradeResult(ok, 1.0 if ok else 0.0, "none" if ok else "wrong_answer", f"pred={pred_value}, expected={expected_value}")
 
 
 def grade_choice(task: EvalTask, answer: Any) -> GradeResult:
@@ -218,6 +306,101 @@ def grade_numeric(task: EvalTask, answer: Any) -> GradeResult:
     return GradeResult(ok, 1.0 if ok else 0.0, "none" if ok else "wrong_answer", f"pred={pred}, expected={expected}, tolerance={tolerance}")
 
 
+def _parse_rational_endpoint(value: Any) -> Fraction | None:
+    parsed = _parse_fraction_literal(value, allow_decimal=False)
+    return parsed[0] if parsed else None
+
+
+def _expected_interval(task: EvalTask) -> tuple[str | None, Fraction, Fraction, bool, bool] | None:
+    expected = task.expected
+    if not isinstance(expected, dict):
+        return None
+    try:
+        lower = _parse_rational_endpoint(expected["lower"])
+        upper = _parse_rational_endpoint(expected["upper"])
+    except KeyError:
+        return None
+    if lower is None or upper is None:
+        return None
+    return (
+        str(expected.get("var")) if expected.get("var") is not None else None,
+        lower,
+        upper,
+        bool(expected.get("lower_closed", False)),
+        bool(expected.get("upper_closed", False)),
+    )
+
+
+def _parse_interval_answer(value: Any, expected_var: str | None) -> tuple[str | None, Fraction, Fraction, bool, bool] | None:
+    s = compact_math_text(value, strip_outer=False).replace("∈", "in")
+    s = s.replace("属于", "in")
+    interval = re.fullmatch(r"(?:(?P<var>[a-z_][a-z0-9_]*)in)?(?P<left>[\(\[])(?P<lower>[^,]+),(?P<upper>[^\]\)]+)(?P<right>[\)\]])", s)
+    if interval:
+        lower = _parse_rational_endpoint(interval.group("lower"))
+        upper = _parse_rational_endpoint(interval.group("upper"))
+        if lower is None or upper is None:
+            return None
+        return (
+            interval.group("var"),
+            lower,
+            upper,
+            interval.group("left") == "[",
+            interval.group("right") == "]",
+        )
+    var = re.escape(expected_var) if expected_var else r"[a-z_][a-z0-9_]*"
+    increasing = re.fullmatch(rf"(?P<lower>.+?)(?P<lop><=|<)(?P<var>{var})(?P<uop><=|<)(?P<upper>.+)", s)
+    if increasing:
+        lower = _parse_rational_endpoint(increasing.group("lower"))
+        upper = _parse_rational_endpoint(increasing.group("upper"))
+        if lower is None or upper is None:
+            return None
+        return (
+            increasing.group("var"),
+            lower,
+            upper,
+            increasing.group("lop") == "<=",
+            increasing.group("uop") == "<=",
+        )
+    decreasing = re.fullmatch(rf"(?P<upper>.+?)(?P<uop>>=|>)(?P<var>{var})(?P<lop>>=|>)(?P<lower>.+)", s)
+    if decreasing:
+        lower = _parse_rational_endpoint(decreasing.group("lower"))
+        upper = _parse_rational_endpoint(decreasing.group("upper"))
+        if lower is None or upper is None:
+            return None
+        return (
+            decreasing.group("var"),
+            lower,
+            upper,
+            decreasing.group("lop") == ">=",
+            decreasing.group("uop") == ">=",
+        )
+    return None
+
+
+def grade_range_interval(task: EvalTask, answer: Any) -> GradeResult:
+    expected = _expected_interval(task)
+    if expected is None:
+        return GradeResult(False, 0.0, "grader_config_error", "range_interval expects object expected with lower/upper endpoints")
+    expected_var, expected_lower, expected_upper, expected_lower_closed, expected_upper_closed = expected
+    pred = _parse_interval_answer(answer, expected_var)
+    if pred is None:
+        return GradeResult(False, 0.0, "parse_error", f"Could not parse interval answer={answer!r}")
+    pred_var, pred_lower, pred_upper, pred_lower_closed, pred_upper_closed = pred
+    if expected_var and pred_var and pred_var != expected_var:
+        return GradeResult(False, 0.0, "wrong_interval", f"pred_var={pred_var!r}, expected_var={expected_var!r}")
+    ok = (
+        pred_lower == expected_lower
+        and pred_upper == expected_upper
+        and pred_lower_closed == expected_lower_closed
+        and pred_upper_closed == expected_upper_closed
+    )
+    detail = (
+        f"pred=({pred_lower},{pred_upper},{pred_lower_closed},{pred_upper_closed}), "
+        f"expected=({expected_lower},{expected_upper},{expected_lower_closed},{expected_upper_closed})"
+    )
+    return GradeResult(ok, 1.0 if ok else 0.0, "none" if ok else "wrong_interval", detail)
+
+
 def grade_unordered_set(task: EvalTask, answer: Any) -> GradeResult:
     expected_values = task.expected
     if not isinstance(expected_values, list):
@@ -242,11 +425,13 @@ def _matched_fraction(total: int, missing: int) -> float:
 GRADERS = {
     "exact_int": grade_exact_int,
     "exact_string": grade_exact_string,
+    "fraction_string": grade_fraction_string,
     "choice": grade_choice,
     "contains_all": grade_contains_all,
     "contains_ordered": grade_contains_ordered,
     "nand_expression": grade_nand_expression,
     "numeric": grade_numeric,
+    "range_interval": grade_range_interval,
     "unordered_set": grade_unordered_set,
 }
 

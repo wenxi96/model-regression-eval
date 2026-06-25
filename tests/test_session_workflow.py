@@ -154,6 +154,63 @@ def test_import_session_accepts_answers_object_and_writes_results(tmp_path):
     assert summary["by_answer_mode"][0]["answer_mode"] == "deterministic"
 
 
+def test_import_session_accepts_frontier_format_variants(tmp_path):
+    answers = {
+        "answers": [
+            {
+                "task_id": "math_random_flip_absorption_001",
+                "repeat": 1,
+                "agent_instance": "format-probe",
+                "execution_mode": "current_session",
+                "answer": r"\frac{189213}{468097}",
+                "confidence": 1.0,
+                "reasoning_summary": "latex fraction equivalent to expected probability",
+            },
+            {
+                "task_id": "math_piecewise_function_collinear_slope_001",
+                "repeat": 1,
+                "agent_instance": "format-probe",
+                "execution_mode": "current_session",
+                "answer": "k in (0, 2/9)",
+                "confidence": 1.0,
+                "reasoning_summary": "interval notation equivalent to 0 < k < 2/9",
+            },
+            {
+                "task_id": "math_tetrahedron_inner_cube_sphere_area_001",
+                "repeat": 1,
+                "agent_instance": "format-probe",
+                "execution_mode": "current_session",
+                "answer": r"6\pi",
+                "confidence": 1.0,
+                "reasoning_summary": "latex pi equivalent to 6π",
+            },
+        ]
+    }
+    answers_path = tmp_path / "frontier_format_answers.json"
+    answers_path.write_text(json.dumps(answers, ensure_ascii=False), encoding="utf-8")
+
+    code = main([
+        "import-session",
+        "--tasks",
+        "tasks/core.zh.jsonl",
+        "--answers",
+        str(answers_path),
+        "--out-dir",
+        str(tmp_path / "runs"),
+        "--run-id",
+        "frontier_format",
+    ])
+
+    assert code == 0
+    rows = [
+        json.loads(line)
+        for line in (tmp_path / "runs" / "frontier_format" / "results.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    assert len(rows) == 3
+    assert all(row["correct"] for row in rows)
+    assert {row["grader"] for row in rows} == {"exact_string", "fraction_string", "range_interval"}
+
+
 def test_import_session_rejects_duplicate_task_repeat_agent_instance(tmp_path):
     task = load_tasks(Path("tasks/core.zh.jsonl"))[0]
     answer = {

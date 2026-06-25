@@ -101,6 +101,10 @@ def _validate_metadata(path: Path, line_no: int, metadata: dict[str, Any]) -> No
         raise ValueError(f"Task {path}:{line_no} metadata.rubric must be a string or object")
     if "variant_group" in metadata and not isinstance(metadata["variant_group"], str):
         raise ValueError(f"Task {path}:{line_no} metadata.variant_group must be a string")
+    if "allow_decimal" in metadata and not isinstance(metadata["allow_decimal"], bool):
+        raise ValueError(f"Task {path}:{line_no} metadata.allow_decimal must be a boolean")
+    if "require_simplest" in metadata and not isinstance(metadata["require_simplest"], bool):
+        raise ValueError(f"Task {path}:{line_no} metadata.require_simplest must be a boolean")
 
 
 def write_jsonl(path: str | Path, rows: Iterable[dict[str, Any]]) -> None:

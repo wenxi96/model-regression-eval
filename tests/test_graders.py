@@ -87,6 +87,41 @@ def test_exact_string_accept_metadata():
     assert not grade(t, "至少2个通过").correct
 
 
+def test_fraction_string_accepts_plain_and_latex_fraction():
+    t = task("189213/468097", "fraction_string")
+    assert grade(t, "189213/468097").correct
+    assert grade(t, r"\frac{189213}{468097}").correct
+    assert grade(t, r"\dfrac{189213}{468097}").correct
+    assert grade(t, r"(\tfrac{189213}{468097})").correct
+
+
+def test_fraction_string_rejects_non_simplest_by_default():
+    t = task("1/2", "fraction_string")
+    r = grade(t, "2/4")
+    assert not r.correct
+    assert r.failure_mode == "non_simplest_fraction"
+
+
+def test_fraction_string_can_allow_decimal_with_metadata():
+    t = task("1/2", "fraction_string", metadata={"allow_decimal": True})
+    assert grade(t, "0.5").correct
+    assert not grade(task("1/2", "fraction_string"), "0.5").correct
+
+
+def test_range_interval_accepts_equivalent_open_interval_forms():
+    t = task({"var": "k", "lower": "0", "upper": "2/9", "lower_closed": False, "upper_closed": False}, "range_interval")
+    assert grade(t, "0 < k < 2/9").correct
+    assert grade(t, "k in (0, 2/9)").correct
+    assert grade(t, "(0, 2/9)").correct
+    assert grade(t, "2/9 > k > 0").correct
+
+
+def test_range_interval_rejects_wrong_or_closed_interval():
+    t = task({"var": "k", "lower": "0", "upper": "2/9", "lower_closed": False, "upper_closed": False}, "range_interval")
+    assert not grade(t, "0 <= k < 2/9").correct
+    assert not grade(t, "0 < k < 1/3").correct
+
+
 def test_choice_accept_metadata():
     t = task("B", "choice", metadata={"accept": ["C"]})
     assert grade(t, "C. 等价表述").correct
@@ -110,4 +145,14 @@ def test_load_tasks_rejects_invalid_capability_metadata(tmp_path):
         encoding="utf-8",
     )
     with pytest.raises(ValueError, match="metadata.difficulty"):
+        load_tasks(path)
+
+
+def test_load_tasks_rejects_invalid_fraction_metadata(tmp_path):
+    path = tmp_path / "tasks.jsonl"
+    path.write_text(
+        '{"id":"t","domain":"d","skill":"s","prompt":"p","expected":"1/2","grader":"fraction_string","metadata":{"allow_decimal":"yes"}}\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="metadata.allow_decimal"):
         load_tasks(path)
