@@ -435,6 +435,12 @@ python -m model_regression_eval.cli run \
   --effort medium
 ```
 
+默认会传 `--ignore-user-config`，以减少本机规则和配置对评测的污染。如果你的 Codex CLI 依赖本机登录配置鉴权，真实 runner 可能需要追加：
+
+```bash
+  --no-ignore-user-config
+```
+
 ### Claude CLI
 
 ```bash

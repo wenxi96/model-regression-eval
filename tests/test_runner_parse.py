@@ -1,4 +1,4 @@
-from model_regression_eval.runner import parse_final_json, parse_jsonl_events, detect_tool_use, extract_usage
+from model_regression_eval.runner import append_codex_auth_hint, parse_final_json, parse_jsonl_events, detect_tool_use, extract_usage
 
 
 def test_parse_final_json_fenced():
@@ -51,7 +51,14 @@ def test_build_codex_command_uses_stdin_and_isolation_flags(tmp_path):
     assert '--ignore-rules' in cmd
     assert '--output-schema' in cmd
     assert '-o' in cmd
+    assert '-a' not in cmd
     assert cmd[-1] == '-'
+
+
+def test_codex_auth_hint_points_to_local_config_flag():
+    hinted = append_codex_auth_hint("401 Unauthorized: invalid API key", ignore_user_config=True)
+    assert "--no-ignore-user-config" in hinted
+    assert append_codex_auth_hint("401 Unauthorized", ignore_user_config=False) == "401 Unauthorized"
 
 
 def test_command_version_is_cached(monkeypatch):

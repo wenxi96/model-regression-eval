@@ -292,8 +292,6 @@ def build_codex_command(
         "--json",
         "--skip-git-repo-check",
         "--ephemeral",
-        "-a",
-        approval,
         "-s",
         sandbox,
         "-c",
@@ -417,6 +415,20 @@ def _run_subprocess_command(
         codex_version=codex_version(cmd[0]) if runner_name == "codex_cli" and cmd else None,
         raw_response=raw_response,
     )
+
+
+def append_codex_auth_hint(stderr: str, *, ignore_user_config: bool) -> str:
+    if not ignore_user_config:
+        return stderr
+    lowered = stderr.lower()
+    markers = ("401", "unauthorized", "invalid api key", "api key", "authentication")
+    if not any(marker in lowered for marker in markers):
+        return stderr
+    hint = (
+        "Codex authentication failed while --ignore-user-config was active. "
+        "If this machine uses Codex's logged-in local config, rerun with --no-ignore-user-config."
+    )
+    return f"{stderr.rstrip()}\n{hint}" if stderr.strip() else hint
 
 
 def parse_cli_stdout(stdout: str, *, runner_name: str) -> tuple[str, dict[str, Any] | None, Usage, bool | None]:
@@ -562,6 +574,7 @@ def run_codex(
     rr.tool_violation = detect_tool_use(rr.raw_events)
     rr.codex_version = codex_version(exe)
     rr.runner_version = rr.codex_version
+    rr.stderr = append_codex_auth_hint(rr.stderr, ignore_user_config=ignore_user_config)
     return rr
 
 

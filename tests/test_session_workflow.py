@@ -211,6 +211,77 @@ def test_import_session_accepts_frontier_format_variants(tmp_path):
     assert {row["grader"] for row in rows} == {"exact_string", "fraction_string", "range_interval"}
 
 
+def test_import_session_accepts_real_codex_equivalent_format_variants(tmp_path):
+    answers = {
+        "answers": [
+            {
+                "task_id": "math_rate_002",
+                "repeat": 1,
+                "answer": "10/3",
+                "confidence": 1.0,
+                "reasoning_summary": "fraction form of expected numeric result",
+            },
+            {
+                "task_id": "logic_ordering_004",
+                "repeat": 1,
+                "answer": "周四任务",
+                "confidence": 1.0,
+                "reasoning_summary": "task name includes the suffix from the prompt",
+            },
+            {
+                "task_id": "metacognition_insufficient_002",
+                "repeat": 1,
+                "answer": "不能得到唯一数值答案；缺少速度。",
+                "confidence": 1.0,
+                "reasoning_summary": "equivalent insufficient-information wording",
+            },
+            {
+                "task_id": "logic_negation_008",
+                "repeat": 1,
+                "answer": "少于3个通过",
+                "confidence": 1.0,
+                "reasoning_summary": "equivalent negation wording",
+            },
+            {
+                "task_id": "reading_state_012",
+                "repeat": 1,
+                "answer": "测试阻塞",
+                "confidence": 1.0,
+                "reasoning_summary": "equivalent blocked state wording",
+            },
+            {
+                "task_id": "metacognition_insufficient_003",
+                "repeat": 1,
+                "answer": "不能得到唯一数值答案；缺少具体身高差。",
+                "confidence": 1.0,
+                "reasoning_summary": "equivalent insufficient-information wording",
+            },
+        ]
+    }
+    answers_path = tmp_path / "real_codex_variants.json"
+    answers_path.write_text(json.dumps(answers, ensure_ascii=False), encoding="utf-8")
+
+    code = main([
+        "import-session",
+        "--tasks",
+        "tasks/core.zh.jsonl",
+        "--answers",
+        str(answers_path),
+        "--out-dir",
+        str(tmp_path / "runs"),
+        "--run-id",
+        "real_codex_variants",
+    ])
+
+    assert code == 0
+    rows = [
+        json.loads(line)
+        for line in (tmp_path / "runs" / "real_codex_variants" / "results.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    assert len(rows) == 6
+    assert all(row["correct"] for row in rows)
+
+
 def test_import_session_rejects_duplicate_task_repeat_agent_instance(tmp_path):
     task = load_tasks(Path("tasks/core.zh.jsonl"))[0]
     answer = {

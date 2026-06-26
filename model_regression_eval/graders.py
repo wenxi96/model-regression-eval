@@ -158,6 +158,17 @@ def _parse_fraction_literal(value: Any, *, allow_decimal: bool = False) -> tuple
     return None
 
 
+def _parse_first_fraction_token(value: Any) -> tuple[Fraction, bool, str] | None:
+    s = compact_math_text(value, strip_outer=False)
+    latex = re.search(r"\\(?:frac|dfrac|tfrac)\{([-+]?\d+)\}\{([-+]?\d+)\}", s)
+    if latex:
+        return _fraction_with_simplest_flag(int(latex.group(1)), int(latex.group(2)), "fraction")
+    plain = re.search(r"([-+]?\d+)/([-+]?\d+)", s)
+    if plain:
+        return _fraction_with_simplest_flag(int(plain.group(1)), int(plain.group(2)), "fraction")
+    return None
+
+
 def _fraction_with_simplest_flag(numerator: int, denominator: int, kind: str) -> tuple[Fraction, bool, str] | None:
     if denominator == 0:
         return None
@@ -205,10 +216,33 @@ def grade_contains_all(task: EvalTask, answer: Any) -> GradeResult:
     expected_values = task.expected
     if not isinstance(expected_values, list):
         return GradeResult(False, 0.0, "grader_config_error", "contains_all expects a list")
-    missing = [x for x in expected_values if normalize_text(x) not in pred]
-    score = _matched_fraction(len(expected_values), len(missing))
+    alias_groups = _contains_all_alias_groups(task, expected_values)
+    if alias_groups is None:
+        return GradeResult(False, 0.0, "grader_config_error", "metadata.accept_parts must be a list aligned with expected")
+    missing = [
+        expected_values[index]
+        for index, aliases in enumerate(alias_groups)
+        if not any(alias in pred for alias in aliases)
+    ]
+    score = _matched_fraction(len(alias_groups), len(missing))
     ok = not missing
     return GradeResult(ok, score, "none" if ok else "missing_expected_parts", f"missing={missing}")
+
+
+def _contains_all_alias_groups(task: EvalTask, expected_values: list[Any]) -> list[list[str]] | None:
+    groups = [[normalize_text(item)] for item in expected_values]
+    accept_parts = (task.metadata or {}).get("accept_parts")
+    if accept_parts is None:
+        return groups
+    if not isinstance(accept_parts, list) or len(accept_parts) != len(expected_values):
+        return None
+    for index, raw_aliases in enumerate(accept_parts):
+        if raw_aliases is None:
+            continue
+        if not isinstance(raw_aliases, list) or not all(isinstance(item, str) for item in raw_aliases):
+            return None
+        groups[index].extend(normalize_text(item) for item in raw_aliases)
+    return groups
 
 
 def grade_contains_ordered(task: EvalTask, answer: Any) -> GradeResult:
@@ -279,6 +313,12 @@ def parse_numeric_answer(value: Any) -> float | None:
         return float(s)
     except Exception:
         pass
+    fraction = _parse_fraction_literal(value, allow_decimal=False)
+    if fraction is not None:
+        return float(fraction[0])
+    fraction = _parse_first_fraction_token(value)
+    if fraction is not None:
+        return float(fraction[0])
     # The final answer field should normally be normalized already, but accepting
     # a leading phrase such as "约等于3.14" makes numeric grading more forgiving
     # without turning arbitrary prose into a correct answer. Only the first

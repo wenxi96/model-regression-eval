@@ -103,6 +103,13 @@ def _validate_metadata(path: Path, line_no: int, metadata: dict[str, Any]) -> No
         raise ValueError(f"Task {path}:{line_no} metadata.variant_group must be a string")
     if "allow_decimal" in metadata and not isinstance(metadata["allow_decimal"], bool):
         raise ValueError(f"Task {path}:{line_no} metadata.allow_decimal must be a boolean")
+    if "accept_parts" in metadata:
+        accept_parts = metadata["accept_parts"]
+        if not isinstance(accept_parts, list):
+            raise ValueError(f"Task {path}:{line_no} metadata.accept_parts must be a list of lists")
+        for aliases in accept_parts:
+            if aliases is not None and (not isinstance(aliases, list) or not all(isinstance(item, str) for item in aliases)):
+                raise ValueError(f"Task {path}:{line_no} metadata.accept_parts must be a list of lists")
     if "require_simplest" in metadata and not isinstance(metadata["require_simplest"], bool):
         raise ValueError(f"Task {path}:{line_no} metadata.require_simplest must be a boolean")
 

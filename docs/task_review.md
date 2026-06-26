@@ -93,6 +93,32 @@
 - 题库组成已经变化，旧 baseline 与本版本不应直接比较。
 - 未做独立专家审题、难度标定、跨模型区分度分析和偏差审计。
 
+## 2026-06-26 真实 Codex runner 复测修复
+
+触发证据：`codex-cli 0.142.1` 真实运行 `standard/quick` 100 题，初始因 Codex CLI 参数兼容问题全量失败；移除废弃 `-a never` 参数后，真实运行达到 92/100，`format_error=0`、`returncode_nonzero=0`、`tool_violation=0`。8 个失败样本复核后分为真实模型失败与判分口径问题。
+
+已执行定点修复：
+
+- `model_regression_eval/runner.py`
+  - Codex command 不再传递当前 CLI 不支持的 `-a <approval>`。
+  - Codex 鉴权失败且仍启用 `--ignore-user-config` 时，在 stderr 追加 `--no-ignore-user-config` 操作提示。
+- `model_regression_eval/graders.py`
+  - `numeric` 支持整段简单分数与 LaTeX 分数答案，例如 `10/3`、`\frac{10}{7}`。
+  - `contains_all` 支持 `metadata.accept_parts`，按 expected 片段配置等价表述，避免把“不能得到唯一数值答案”这类确定性等价表达误判为缺少“信息不足”。
+- `model_regression_eval/tasks.py`
+  - 校验 `metadata.accept_parts` 必须为 `list[list[str] | null]`。
+- `tasks/core.zh.jsonl`
+  - `logic_ordering_004` 接受 `周四任务`。
+  - `logic_negation_008` 接受 `少于3个通过` / `少于三个通过`。
+  - `reading_state_012` 接受 `测试阻塞` / `阻塞待修复`。
+  - `metacognition_insufficient_002` / `003` 增加不足信息与差值类等价片段。
+- `README.md`
+  - 补充 Codex CLI runner 在依赖本机登录配置时需使用 `--no-ignore-user-config`。
+
+未放宽项：
+
+- `candy_ambiguity_001` 仍要求同时识别歧义并给出两种解释下的数值 `21` / `29`。本次 Codex 回答只识别歧义、未给数值，保留为模型/指令失败，不作为 grader 误杀处理。
+
 ## 验收证据
 
 本轮应使用以下命令作为完成前验证：

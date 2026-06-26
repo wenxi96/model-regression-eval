@@ -69,6 +69,12 @@ def test_numeric_extracts_first_number_from_answer_field():
     assert grade(task(3.14, "numeric"), "3.14π").correct
 
 
+def test_numeric_accepts_simple_fraction_answer_field():
+    assert grade(task(10 / 3, "numeric", metadata={"tolerance": 0.0001}), "10/3").correct
+    assert grade(task(10 / 7, "numeric", metadata={"tolerance": 0.0001}), r"\frac{10}{7}").correct
+    assert grade(task(10 / 3, "numeric", metadata={"tolerance": 0.0001}), "约10/3小时").correct
+
+
 def test_unordered_set_partial_score_without_correctness():
     r = grade(task(["红", "蓝", "绿"], "unordered_set"), "蓝, 红")
     assert not r.correct
@@ -85,6 +91,18 @@ def test_exact_string_accept_metadata():
     t = task("至多2个通过", "exact_string", metadata={"accept": ["最多2个通过", "至多两个通过", "最多两个通过"]})
     assert grade(t, "最多两个通过").correct
     assert not grade(t, "至少2个通过").correct
+
+
+def test_contains_all_accept_parts_metadata():
+    t = task(
+        ["信息不足", "差值"],
+        "contains_all",
+        metadata={"accept_parts": [["不能得到唯一", "无法得到唯一"], ["身高差"]]},
+    )
+    assert grade(t, "不能得到唯一数值答案；缺少甲乙和乙丙的具体身高差").correct
+    wrong = grade(t, "不能得到唯一数值答案")
+    assert not wrong.correct
+    assert wrong.score == pytest.approx(0.5)
 
 
 def test_fraction_string_accepts_plain_and_latex_fraction():
@@ -155,4 +173,14 @@ def test_load_tasks_rejects_invalid_fraction_metadata(tmp_path):
         encoding="utf-8",
     )
     with pytest.raises(ValueError, match="metadata.allow_decimal"):
+        load_tasks(path)
+
+
+def test_load_tasks_rejects_invalid_accept_parts_metadata(tmp_path):
+    path = tmp_path / "tasks.jsonl"
+    path.write_text(
+        '{"id":"t","domain":"d","skill":"s","prompt":"p","expected":["x"],"grader":"contains_all","metadata":{"accept_parts":["x"]}}\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="metadata.accept_parts"):
         load_tasks(path)

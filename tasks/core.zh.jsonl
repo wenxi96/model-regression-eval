@@ -88,7 +88,7 @@
 {"domain": "logic", "expected": "丁", "grader": "exact_string", "id": "logic_ordering_001", "prompt": "甲比乙高，丙比甲高，丁比乙矮。谁最矮？只写名称。", "skill": "ordering", "weight": 1}
 {"domain": "logic", "expected": "小黄", "grader": "exact_string", "id": "logic_ordering_002", "prompt": "小红比小蓝早到，小绿比小蓝晚到，小黄比小绿晚到。谁最晚到？只写名称。", "skill": "ordering", "weight": 1}
 {"domain": "logic", "expected": "C", "grader": "exact_string", "id": "logic_ordering_003", "prompt": "A分数高于B，C分数低于B，D分数高于A。谁分数最低？只写名称。", "skill": "ordering", "weight": 1}
-{"domain": "logic", "expected": "周四", "grader": "exact_string", "id": "logic_ordering_004", "prompt": "周一任务最先完成，周二任务比周一任务后完成，周三任务比周二任务后完成，周四任务比周三任务后完成。哪个任务最后完成？只写名称。", "skill": "ordering", "weight": 1}
+{"domain": "logic", "expected": "周四", "grader": "exact_string", "id": "logic_ordering_004", "metadata": {"accept": ["周四任务"]}, "prompt": "周一任务最先完成，周二任务比周一任务后完成，周三任务比周二任务后完成，周四任务比周三任务后完成。哪个任务最后完成？只写名称。", "skill": "ordering", "weight": 1}
 {"domain": "logic", "expected": "钱", "grader": "exact_string", "id": "logic_ordering_005", "prompt": "李比王重，赵比李轻但比王重，钱比王轻。谁最轻？只写名称。", "skill": "ordering", "weight": 1}
 {"domain": "logic", "expected": "三号箱", "grader": "exact_string", "id": "logic_ordering_006", "prompt": "一号箱比二号箱轻，三号箱比一号箱轻，四号箱比二号箱重。哪个箱子最轻？只写名称。", "skill": "ordering", "weight": 1}
 {"domain": "logic", "expected": "丁车", "grader": "exact_string", "id": "logic_ordering_007", "prompt": "甲车比乙车快，丙车比甲车慢但比乙车快，丁车比乙车慢。哪辆车最慢？只写名称。", "skill": "ordering", "weight": 1}
@@ -197,7 +197,7 @@
 {"domain": "robustness", "expected": 150, "grader": "exact_int", "id": "robust_unit_002", "prompt": "一根绳子长2米，剪去50厘米，还剩多少厘米？只写整数。", "skill": "unit_trap", "weight": 1}
 {"domain": "robustness", "expected": ["可以", "垂直"], "grader": "contains_all", "id": "robust_trick_bamboo_door_001", "prompt": "一根 5.5 米长的竹竿，能否通过高 4 米、宽 3 米的门？answer 字段用“可以，因为...”形式回答，并说明关键原因。", "skill": "lateral_reasoning", "weight": 1}
 {"domain": "robustness", "expected": ["北极", "南极"], "grader": "contains_all", "id": "robust_trick_polar_bear_penguin_001", "prompt": "为什么北极熊不吃企鹅？answer 字段用一句中文短句回答。", "skill": "lateral_reasoning", "weight": 1}
-{"domain": "metacognition", "expected": ["信息不足", "速度"], "grader": "contains_all", "id": "metacognition_insufficient_002", "prompt": "题目：小明从A地到B地走了2小时，问A到B有多远。请判断是否能得到唯一数值答案；如果不能，说明缺少什么关键信息。", "skill": "insufficient_information", "weight": 1}
+{"domain": "metacognition", "expected": ["信息不足", "速度"], "grader": "contains_all", "id": "metacognition_insufficient_002", "metadata": {"accept_parts": [["不能得到唯一", "无法得到唯一", "不能确定", "无法确定"], null]}, "prompt": "题目：小明从A地到B地走了2小时，问A到B有多远。请判断是否能得到唯一数值答案；如果不能，说明缺少什么关键信息。", "skill": "insufficient_information", "weight": 1}
 {"domain": "math", "expected": 7, "grader": "exact_int", "id": "math_arithmetic_011", "prompt": "计算：(18+24)÷6。只写整数。", "skill": "calculation", "weight": 1}
 {"domain": "math", "expected": 14, "grader": "exact_int", "id": "math_arithmetic_012", "prompt": "计算：56-7×6。只写整数。", "skill": "calculation", "weight": 1}
 {"domain": "math", "expected": 20, "grader": "exact_int", "id": "math_arithmetic_013", "prompt": "计算：144÷12+8。只写整数。", "skill": "calculation", "weight": 1}
@@ -232,7 +232,7 @@
 {"domain": "logic", "expected": "C", "grader": "choice", "id": "logic_conditional_018", "metadata": {"choice_reordered": "2026-06-23: reordered options to reduce answer-letter bias without changing the correct option text."}, "prompt": "A当且仅当B。已知A为真。以下哪项必然成立？ A.B为假 B.A为假 C.B为真 D.无法判断B。只回答选项字母。", "skill": "deduction", "weight": 1}
 {"domain": "logic", "expected": "B", "grader": "choice", "id": "logic_negation_006", "prompt": "命题“所有猫都是黑色”的否定是什么？A.所有猫都不是黑色 B.至少有一只猫不是黑色 C.没有猫 D.有些黑色的是猫。只回答选项字母。", "skill": "negation_handling", "weight": 1}
 {"domain": "logic", "expected": "D", "grader": "choice", "id": "logic_negation_007", "metadata": {"choice_reordered": "2026-06-23: reordered options to reduce answer-letter bias without changing the correct option text."}, "prompt": "命题“存在学生通过考试”的否定是什么？A.所有学生都通过考试 B.有学生没通过 C.没人参加考试 D.所有学生都没有通过考试。只回答选项字母。", "skill": "negation_handling", "weight": 1}
-{"domain": "logic", "expected": "至多2个通过", "grader": "exact_string", "id": "logic_negation_008", "metadata": {"accept": ["最多2个通过", "至多两个通过", "最多两个通过"]}, "prompt": "“至少3个通过”的否定是什么？answer 字段只写最简中文短语。", "skill": "negation_handling", "weight": 1}
+{"domain": "logic", "expected": "至多2个通过", "grader": "exact_string", "id": "logic_negation_008", "metadata": {"accept": ["最多2个通过", "至多两个通过", "最多两个通过", "少于3个通过", "少于三个通过"]}, "prompt": "“至少3个通过”的否定是什么？answer 字段只写最简中文短语。", "skill": "negation_handling", "weight": 1}
 {"domain": "logic", "expected": 2, "grader": "exact_int", "id": "logic_counterexample_003", "prompt": "命题“所有偶数都能被4整除”是假的。请给出一个最小正整数反例。只写整数。", "skill": "counterexample", "weight": 1}
 {"domain": "logic", "expected": "不可能", "grader": "exact_string", "id": "logic_truthfulness_005", "prompt": "A说“B说真话”，B说“A说谎”。假设每人只说一句且每句非真即假，是否存在真假分配？只写“可能”或“不可能”。", "skill": "truthfulness", "weight": 1}
 {"domain": "logic", "expected": "丁", "grader": "exact_string", "id": "logic_ordering_010", "prompt": "四人到达顺序满足：甲早于乙，丙晚于乙，丁早于甲。谁一定最早？只写姓名。", "skill": "ordering", "weight": 1}
@@ -270,7 +270,7 @@
 {"domain": "reading", "expected": 17, "grader": "exact_int", "id": "reading_inventory_002", "prompt": "库存记录：早上有25件；上午售出6件；下午退回2件；傍晚又售出4件。傍晚结束库存多少件？只写整数。", "skill": "state_tracking", "weight": 1}
 {"domain": "reading", "expected": 42, "grader": "exact_int", "id": "reading_inventory_003", "prompt": "仓库记录：初始50箱，发出15箱，补入12箱，又因破损移出5箱。最后剩多少箱？只写整数。", "skill": "state_tracking", "weight": 1}
 {"domain": "reading", "expected": "待发布", "grader": "exact_string", "id": "reading_state_011", "prompt": "记录：需求已确认，开发已完成，测试已通过，但发布窗口还没到。当前状态是什么？只写状态。", "skill": "state_tracking", "weight": 1}
-{"domain": "reading", "expected": "待修复", "grader": "exact_string", "id": "reading_state_012", "prompt": "记录：开发完成后进入测试，测试发现阻塞缺陷，缺陷尚未修复。当前状态是什么？只写状态。", "skill": "state_tracking", "weight": 1}
+{"domain": "reading", "expected": "待修复", "grader": "exact_string", "id": "reading_state_012", "metadata": {"accept": ["测试阻塞", "阻塞待修复"]}, "prompt": "记录：开发完成后进入测试，测试发现阻塞缺陷，缺陷尚未修复。当前状态是什么？只写状态。", "skill": "state_tracking", "weight": 1}
 {"domain": "reading", "expected": "B", "grader": "choice", "id": "reading_conflict_003", "prompt": "规则：会员可免费配送；但冷链商品不参与免费配送。订单是会员订单且包含冷链商品。是否免费配送？A.是 B.否 C.看金额 D.信息不足。只回答选项字母。", "skill": "conflict_resolution", "weight": 1}
 {"domain": "reading", "expected": "A", "grader": "choice", "id": "reading_conflict_004", "prompt": "规则：未锁定的文档可编辑；已锁定的文档不可编辑。某文档未锁定且作者本人正在编辑。是否可编辑？A.可编辑 B.不可编辑 C.必须删除 D.信息不足。只回答选项字母。", "skill": "conflict_resolution", "weight": 1}
 {"domain": "reading", "expected": "周四17点", "grader": "exact_string", "id": "reading_email_004", "prompt": "邮件：请在周四17点前提交预算表；会议材料可在周五上午补交。预算表截止时间是什么？只写时间。", "skill": "information_extraction", "weight": 1}
@@ -295,6 +295,6 @@
 {"domain": "robustness", "expected": 96, "grader": "exact_int", "id": "robust_percentage_001", "prompt": "一件商品原价100元，先涨价20%，再降价20%。最后价格是多少元？只写整数。", "skill": "percentage_trap", "weight": 1}
 {"domain": "robustness", "expected": "真", "grader": "exact_string", "id": "robust_exactly_002", "prompt": "条件要求A、B、C中恰好两个为真。已知A为真、B为假。为了满足条件，C应为真还是假？只写“真”或“假”。", "skill": "exactly_vs_at_least", "weight": 1}
 {"domain": "robustness", "expected": ["每人一", "不需要切"], "grader": "contains_all", "id": "robust_trick_cake_cut_001", "prompt": "只用一刀，如何把 4 个蛋糕分给 4 个小朋友？answer 字段用一句中文短句回答。", "skill": "lateral_reasoning", "weight": 1}
-{"domain": "metacognition", "expected": ["信息不足", "差值"], "grader": "contains_all", "id": "metacognition_insufficient_003", "prompt": "题目：甲比乙高，乙比丙高，问甲比丙高多少厘米。请判断是否能得到唯一数值答案；如果不能，说明缺少什么关键信息。", "skill": "insufficient_information", "weight": 1}
+{"domain": "metacognition", "expected": ["信息不足", "差值"], "grader": "contains_all", "id": "metacognition_insufficient_003", "metadata": {"accept_parts": [["不能得到唯一", "无法得到唯一", "不能确定", "无法确定"], ["身高差", "具体身高差"]]}, "prompt": "题目：甲比乙高，乙比丙高，问甲比丙高多少厘米。请判断是否能得到唯一数值答案；如果不能，说明缺少什么关键信息。", "skill": "insufficient_information", "weight": 1}
 {"domain": "metacognition", "expected": ["歧义", "谁用望远镜"], "grader": "contains_all", "id": "metacognition_ambiguity_002", "prompt": "句子“小李看到小王用望远镜”是否有歧义？如果有，请说明歧义点。", "skill": "ambiguity_detection", "weight": 1}
 {"domain": "metacognition", "expected": ["无法确定", "天气预报"], "grader": "contains_all", "id": "metacognition_insufficient_004", "prompt": "只根据题干“明天会下雨吗？”能否得到确定答案？如果不能，说明需要什么外部信息。", "skill": "insufficient_information", "weight": 1}
